@@ -10,5 +10,10 @@ struct ForgeApp: App {
                 .environment(appDelegate.model)
         }
         .defaultSize(width: 1100, height: 720)
+
+        Settings {
+            SettingsView()
+                .environment(appDelegate.model)
+        }
     }
 }

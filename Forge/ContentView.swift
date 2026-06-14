@@ -5,7 +5,10 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if model.hasStarted {
+            if !model.preferences.onboarded {
+                OnboardingView()
+                    .transition(.opacity)
+            } else if model.hasStarted {
                 HSplitView {
                     ChatView()
                         .frame(minWidth: 360, idealWidth: 440, maxWidth: 680)
@@ -22,5 +25,6 @@ struct ContentView: View {
         .background(Theme.canvas)
         .preferredColorScheme(.light) // forced light — keeps the B/W design + text visible under any system appearance
         .animation(.smooth(duration: 0.35), value: model.hasStarted)
+        .animation(.smooth(duration: 0.35), value: model.preferences.onboarded)
     }
 }

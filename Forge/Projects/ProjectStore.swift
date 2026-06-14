@@ -2,10 +2,21 @@ import Foundation
 
 /// Persists the project list (index.json) and each project's chat + code under
 /// ~/Library/Application Support/Forge/projects/<folder>/.
+/// Main-actor isolated: only AppModel (which is @MainActor) touches it, and the
+/// `configuredRoot` flag is mutable shared state that Swift 6 requires isolating.
+@MainActor
 enum ProjectStore {
+    /// Set from `Preferences.projectsRoot` at launch / onboarding finish.
+    static var configuredRoot: URL?
+
     static var root: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let url = base.appendingPathComponent("Forge/projects", isDirectory: true)
+        let url: URL
+        if let configured = configuredRoot {
+            url = configured
+        } else {
+            let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            url = base.appendingPathComponent("Forge/projects", isDirectory: true)
+        }
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }

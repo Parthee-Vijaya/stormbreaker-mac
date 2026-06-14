@@ -85,6 +85,9 @@ final class AppModel {
     var selectedModelID: String = ""
 
     // ForgeKit handles (Sendable; safe to use from off-main tasks).
+    // Config
+    var preferences = Preferences()
+
     // Projects
     var projects: [Project] = []
     var currentProject: Project
@@ -99,6 +102,11 @@ final class AppModel {
     @ObservationIgnored private var lastLoadedText = ""
 
     init() {
+        let prefs = PreferencesStore.load()
+        self.preferences = prefs
+        if !prefs.projectsRoot.isEmpty {
+            ProjectStore.configuredRoot = URL(fileURLWithPath: prefs.projectsRoot)
+        }
         var loaded = ProjectStore.loadProjects()
         if loaded.isEmpty {
             let project = ProjectStore.makeProject(name: "Untitled")
@@ -117,7 +125,7 @@ final class AppModel {
         self.errorCollector = ErrorCollector(devServer: devServer)
 
         self.availableModels = [.localDefault]
-        self.selectedModelID = ModelConfig.localDefault.id
+        self.selectedModelID = prefs.defaultModelID.isEmpty ? ModelConfig.localDefault.id : prefs.defaultModelID
 
         self.messages = ProjectStore.loadChat(for: current)
         self.hasStarted = !messages.isEmpty
@@ -140,9 +148,10 @@ final class AppModel {
     /// model. Called at launch and from the picker's Refresh button.
     func refreshModels() async {
         var models = await ModelDiscovery.discoverLocal()
-        let env = ProcessInfo.processInfo.environment
-        if let key = env["FORGE_CLOUD_API_KEY"], !key.isEmpty {
-            let cloud = env["FORGE_CLOUD_MODEL"] ?? "nvidia/llama-3.1-nemotron-70b-instruct"
+        if let key = KeychainStore.get(account: KeychainStore.cloudKeyAccount), !key.isEmpty {
+            models.append(cloudConfig(key: key))
+        } else if let key = ProcessInfo.processInfo.environment["FORGE_CLOUD_API_KEY"], !key.isEmpty {
+            let cloud = ProcessInfo.processInfo.environment["FORGE_CLOUD_MODEL"] ?? "nvidia/llama-3.1-nemotron-70b-instruct"
             models.append(.nvidiaNIM(key: key, model: cloud))
         }
         if models.isEmpty { models = [.localDefault] }
@@ -156,6 +165,61 @@ final class AppModel {
         models.first { $0.modelID.lowercased().contains("coder") }
             ?? models.first { $0.source == .ollama }
             ?? models.first ?? .localDefault
+    }
+
+    // MARK: - Preferences / config
+
+    func savePreferences() { PreferencesStore.save(preferences) }
+
+    func completeOnboarding() {
+        preferences.onboarded = true
+        applyPreferences()
+    }
+
+    /// Apply runtime-affecting preferences (projects location + default model).
+    /// Called when onboarding finishes or Settings changes them.
+    func applyPreferences() {
+        savePreferences()
+        ProjectStore.configuredRoot = preferences.projectsRoot.isEmpty
+            ? nil : URL(fileURLWithPath: preferences.projectsRoot)
+        var loaded = ProjectStore.loadProjects()
+        if loaded.isEmpty {
+            let project = ProjectStore.makeProject(name: "Untitled")
+            ProjectStore.saveProjects([project])
+            loaded = [project]
+        }
+        projects = loaded
+        if !loaded.contains(where: { $0.id == currentProject.id }) {
+            activate(loaded[0], freshState: false)
+        }
+        if !preferences.defaultModelID.isEmpty { selectedModelID = preferences.defaultModelID }
+        Task { await refreshModels() }
+    }
+
+    /// System prompt = base + user name + global memory + project AI_RULES.md.
+    private func composedSystemPrompt() async -> String {
+        var parts = [SystemPrompt.forge]
+        if !preferences.userName.isEmpty {
+            parts.append("The user you are helping is called \(preferences.userName). Address them by name when natural.")
+        }
+        let memory = preferences.memory.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !memory.isEmpty {
+            parts.append("User preferences and context to always respect:\n\(memory)")
+        }
+        if let rules = try? await workspace.readFile("AI_RULES.md"),
+           !rules.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            parts.append("Project-specific rules (AI_RULES.md):\n\(rules)")
+        }
+        return parts.joined(separator: "\n\n")
+    }
+
+    private func cloudConfig(key: String) -> ModelConfig {
+        let model = preferences.cloudModel
+        switch preferences.cloudProvider {
+        case "openai": return .openAI(key: key, model: model.isEmpty ? "gpt-4o" : model)
+        case "anthropic": return .anthropic(key: key, model: model.isEmpty ? "claude-sonnet-4-6" : model)
+        default: return .nvidiaNIM(key: key, model: model.isEmpty ? "nvidia/llama-3.1-nemotron-70b-instruct" : model)
+        }
     }
 
     // MARK: - Projects
@@ -262,6 +326,10 @@ final class AppModel {
     }
 
     private func runDeploy(repo: String) async {
+        let owner = preferences.githubOwner.isEmpty ? "Parthee-Vijaya" : preferences.githubOwner
+        let ownerPrefix = preferences.githubOwner.isEmpty ? "" : "\(preferences.githubOwner)/"
+        let scopeFlag = preferences.vercelScope.isEmpty ? "" : " --scope \(preferences.vercelScope)"
+
         deployStatus = "Preparing repository…"
         _ = try? await deployShell(
             "git init -q 2>/dev/null; git config user.email 'partivijaya@icloud.com'; "
@@ -270,13 +338,13 @@ final class AppModel {
 
         deployStatus = "Pushing to GitHub…"
         let githubOutput = (try? await deployShell(
-            "gh repo create \(repo) --private --source=. --remote=origin --push 2>&1 "
+            "gh repo create \(ownerPrefix)\(repo) --private --source=. --remote=origin --push 2>&1 "
             + "|| git push -u origin HEAD 2>&1")) ?? ""
         deployGithubURL = Self.firstMatch(#"https://github\.com/[^\s]+"#, in: githubOutput)
-            ?? URL(string: "https://github.com/Parthee-Vijaya/\(repo)")
+            ?? URL(string: "https://github.com/\(owner)/\(repo)")
 
         deployStatus = "Deploying to Vercel…"
-        let vercelOutput = (try? await deployShell("vercel deploy --prod --yes 2>&1")) ?? ""
+        let vercelOutput = (try? await deployShell("vercel deploy --prod --yes\(scopeFlag) 2>&1")) ?? ""
         deployVercelURL = Self.firstMatch(#"https://[^\s]+\.vercel\.app"#, in: vercelOutput)
         deployStatus = deployVercelURL != nil ? "Live on Vercel." : "Finished — check the log."
     }
@@ -417,6 +485,9 @@ final class AppModel {
         if !templateInstalled {
             do {
                 try await TemplateInstaller().install(into: workspace)
+                if !preferences.rulesTemplate.isEmpty, !(await workspace.fileExists("AI_RULES.md")) {
+                    try? await workspace.writeFile("AI_RULES.md", contents: preferences.rulesTemplate)
+                }
                 templateInstalled = true
             } catch {
                 appendAssistant(assistantIndex, "Could not scaffold the project: \(error)")
@@ -426,10 +497,12 @@ final class AppModel {
         await errorCollector.reset()
 
         let config = selectedModel
+        let systemPrompt = await composedSystemPrompt()
         let deps = AgentLoop.Dependencies(
             provider: ModelRouter.provider(for: config),
             options: ModelRouter.options(for: config),
             process: processLayer,
+            systemPrompt: systemPrompt,
             projectContext: { [workspace] in await AppModel.buildContext(workspace) },
             collectErrors: { [errorCollector] in await errorCollector.collect() },
             onTurnStart: { [errorCollector] in await errorCollector.reset() },
