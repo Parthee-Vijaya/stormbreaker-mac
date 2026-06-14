@@ -5,6 +5,9 @@ import Foundation
 public protocol ProcessLayer: Sendable {
     func writeFile(_ relativePath: String, contents: String) async throws
 
+    /// Read a file's current contents (used to apply line-replace edits).
+    func readFile(_ relativePath: String) async throws -> String
+
     /// Install npm packages (adds them to package.json). No-op for an empty list.
     func addDependencies(_ packages: [String]) async throws
 

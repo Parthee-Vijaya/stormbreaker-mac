@@ -22,6 +22,11 @@ public actor ActionExecutor {
         case .fileClose(let path, let contents):
             try await process.writeFile(path, contents: contents)
             filesWritten.append(path)
+        case .lineReplaceClose(let path, let edits):
+            let original = try await process.readFile(path)
+            let updated = try Self.apply(edits, to: original, path: path)
+            try await process.writeFile(path, contents: updated)
+            filesWritten.append(path)
         case .inlineAction(.addDependency(let package)):
             pendingDeps.append(package)
         case .inlineAction(.shell(let command)):
@@ -30,9 +35,27 @@ public actor ActionExecutor {
             startRequested = true
         case .artifactClose:
             try await flush()
-        case .text, .artifactOpen, .fileOpen, .fileChunk, .inlineAction(.file):
+        case .text, .artifactOpen, .fileOpen, .fileChunk, .lineReplaceOpen,
+             .inlineAction(.file), .inlineAction(.lineReplace):
             break
         }
+    }
+
+    /// Apply search/replace edits to a file's contents, in order. All-or-nothing:
+    /// if any SEARCH block isn't found, throws WITHOUT a partial write so the file
+    /// is never left half-edited (the loop surfaces the failure for a retry).
+    static func apply(_ edits: [LineEdit], to original: String, path: String) throws -> String {
+        var content = original
+        var missing: [String] = []
+        for edit in edits where !edit.search.isEmpty {
+            if let range = content.range(of: edit.search) {
+                content.replaceSubrange(range, with: edit.replace)
+            } else {
+                missing.append(edit.search)
+            }
+        }
+        if !missing.isEmpty { throw LineReplaceFailure(path: path, missing: missing) }
+        return content
     }
 
     /// Run queued commands and start the dev server if needed. Called at
@@ -57,4 +80,15 @@ public actor ActionExecutor {
     }
 
     public var writtenFiles: [String] { filesWritten }
+}
+
+/// Thrown when a line-replace edit's SEARCH block doesn't match the file, so the
+/// turn fails cleanly (and legibly) instead of writing a corrupted file.
+public struct LineReplaceFailure: Error, CustomStringConvertible {
+    public let path: String
+    public let missing: [String]
+    public var description: String {
+        "line-replace on \(path): \(missing.count) search block(s) not found. "
+        + "Re-emit the file with a `file` action, or match the current contents exactly."
+    }
 }

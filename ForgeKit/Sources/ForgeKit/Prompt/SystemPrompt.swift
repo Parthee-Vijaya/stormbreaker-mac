@@ -61,4 +61,89 @@ public enum SystemPrompt {
     build. Most users are non-technical: never tell them to edit files or fetch logs themselves.
     </communication>
     """
+
+    /// The system prompt for a given model capability. Strong models additionally
+    /// get the line-replace (search/replace) edit format for cheap, targeted edits
+    /// to existing files; weaker local models stay on whole-file writes only.
+    ///
+    /// Each variant ends with a concrete few-shot example (A20): weak local 14B
+    /// models in particular tend to drift on the exact tag format (markdown
+    /// fences, placeholders, wrong attributes), and one correct worked example
+    /// raises first-pass format adherence far more than prose rules alone.
+    public static func forge(lineReplace: Bool) -> String {
+        if lineReplace {
+            return forge + "\n\n" + lineReplaceAddendum + "\n\n" + lineReplaceExample
+        }
+        return forge + "\n\n" + wholeFileExample
+    }
+
+    /// Few-shot for whole-file models: one complete, correct edit (no fences, no
+    /// placeholders, no `start` on an edit).
+    static let wholeFileExample = """
+    <example>
+    User: Add a centered button that counts clicks.
+
+    Assistant:
+    I'll add a counter button.
+    <forgeArtifact id="counter" title="Click counter">
+    <forgeAction type="file" filePath="src/App.tsx">
+    import { useState } from "react"
+
+    export default function App() {
+      const [count, setCount] = useState(0)
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-white">
+          <button
+            onClick={() => setCount((c) => c + 1)}
+            className="px-5 py-2.5 rounded-lg bg-black text-white font-medium hover:bg-neutral-800"
+          >
+            Clicked {count} times
+          </button>
+        </div>
+      )
+    }
+    </forgeAction>
+    </forgeArtifact>
+    </example>
+    """
+
+    /// Few-shot for line-replace models: a minimal targeted diff edit.
+    static let lineReplaceExample = """
+    <example>
+    User: Change the button label to "Tap me".
+
+    Assistant:
+    <forgeArtifact id="label" title="Update label">
+    <forgeAction type="line-replace" filePath="src/App.tsx">
+    <<<<<<< SEARCH
+            Clicked {count} times
+    =======
+            Tap me ({count})
+    >>>>>>> REPLACE
+    </forgeAction>
+    </forgeArtifact>
+    </example>
+    """
+
+    static let lineReplaceAddendum = """
+    <line_replace>
+    For a SMALL, targeted change to an EXISTING file, prefer a line-replace action over rewriting the \
+    whole file — it is faster and cheaper, especially on large files:
+
+    <forgeAction type="line-replace" filePath="src/App.tsx">
+    <<<<<<< SEARCH
+    the exact existing lines to find
+    =======
+    the replacement lines
+    >>>>>>> REPLACE
+    </forgeAction>
+
+    Rules:
+    - The SEARCH block MUST match the current file contents EXACTLY, including whitespace and indentation.
+    - Include enough surrounding lines to make the match UNIQUE in the file.
+    - You may stack multiple SEARCH/REPLACE blocks in one action; they apply top to bottom.
+    - Use a whole `file` action instead when creating a new file or making large/structural changes.
+    - If you are unsure the SEARCH text matches exactly, use a `file` action to be safe.
+    </line_replace>
+    """
 }

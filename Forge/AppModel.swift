@@ -97,6 +97,7 @@ final class AppModel {
     @ObservationIgnored private(set) var processLayer: ForgeProcessLayer
     @ObservationIgnored private(set) var errorCollector: ErrorCollector
     @ObservationIgnored private var templateInstalled = false
+    @ObservationIgnored private var agentTask: Task<Void, Never>?
     @ObservationIgnored private var logTask: Task<Void, Never>?
     @ObservationIgnored private var autosaveTask: Task<Void, Never>?
     @ObservationIgnored private var lastLoadedText = ""
@@ -198,7 +199,7 @@ final class AppModel {
 
     /// System prompt = base + user name + global memory + project AI_RULES.md.
     private func composedSystemPrompt() async -> String {
-        var parts = [SystemPrompt.forge]
+        var parts = [SystemPrompt.forge(lineReplace: selectedModel.supportsLineReplace)]
         if !preferences.userName.isEmpty {
             parts.append("The user you are helping is called \(preferences.userName). Address them by name when natural.")
         }
@@ -474,11 +475,27 @@ final class AppModel {
         let assistantIndex = messages.count - 1
         isBusy = true
 
-        Task {
+        agentTask = Task {
             await runAgent(prompt: prompt, history: history, assistantIndex: assistantIndex)
+            if Task.isCancelled {
+                phase = .idle
+                statusText = "Stopped."
+                if messages.indices.contains(assistantIndex), messages[assistantIndex].text.isEmpty {
+                    messages[assistantIndex].text = "_Stopped._"
+                }
+            } else {
+                statusText = Self.statusText(for: phase)
+            }
             isBusy = false
-            statusText = Self.statusText(for: phase)
+            agentTask = nil
         }
+    }
+
+    /// Cancel an in-flight generation. The AgentLoop's stream terminates on the
+    /// consuming task's cancellation; partial assistant text + any files already
+    /// written are kept.
+    func cancelGeneration() {
+        agentTask?.cancel()
     }
 
     private func runAgent(prompt: String, history: [ChatMessage], assistantIndex: Int) async {
@@ -498,12 +515,13 @@ final class AppModel {
 
         let config = selectedModel
         let systemPrompt = await composedSystemPrompt()
+        let touched = Self.recentTouched(from: messages)
         let deps = AgentLoop.Dependencies(
             provider: ModelRouter.provider(for: config),
             options: ModelRouter.options(for: config),
             process: processLayer,
             systemPrompt: systemPrompt,
-            projectContext: { [workspace] in await AppModel.buildContext(workspace) },
+            projectContext: { [workspace] in await AppModel.buildContext(workspace, touched: touched) },
             collectErrors: { [errorCollector] in await errorCollector.collect() },
             onTurnStart: { [errorCollector] in await errorCollector.reset() },
             settleDelay: .seconds(2),
@@ -562,14 +580,25 @@ final class AppModel {
         messages.map { ChatMessage(role: $0.role == .user ? .user : .assistant, content: $0.text) }
     }
 
-    nonisolated static func buildContext(_ workspace: ProjectWorkspace) async -> String? {
+    nonisolated static func buildContext(_ workspace: ProjectWorkspace, touched: [String]) async -> String? {
         let files = await workspace.fileMap()
-        guard !files.isEmpty else { return nil }
-        var context = "Project files:\n" + files.map { "- \($0)" }.joined(separator: "\n")
-        if let app = try? await workspace.readFile("src/App.tsx") {
-            context += "\n\nCurrent src/App.tsx:\n```tsx\n\(app)\n```"
+        return await ContextBuilder().build(files: files, touched: touched) {
+            try? await workspace.readFile($0)
         }
-        return context
+    }
+
+    /// Most-recently-written unique files (across prior assistant turns), so the
+    /// context builder can prioritize what the model just edited.
+    static func recentTouched(from messages: [UIMessage]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for message in messages.reversed() where message.role == .assistant {
+            for file in message.files.reversed() where seen.insert(file).inserted {
+                result.append(file)
+            }
+            if result.count >= 8 { break }
+        }
+        return result
     }
 
     private func startLogStream() {

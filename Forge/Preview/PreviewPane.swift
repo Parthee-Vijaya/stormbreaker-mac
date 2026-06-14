@@ -35,7 +35,7 @@ struct PreviewPane: View {
                         radius: 16, y: 4)
                 .padding(model.previewWidth == .full ? 0 : 24)
         } else {
-            BuildingView(statusText: model.statusText, lastLog: model.serverLog.last?.text)
+            BuildingView(statusText: model.statusText, lastLog: model.serverLog.last?.text, isBusy: model.isBusy)
         }
     }
 }
@@ -139,6 +139,7 @@ private struct PreviewToolbar: View {
 private struct BuildingView: View {
     let statusText: String
     let lastLog: String?
+    var isBusy: Bool = true
 
     var body: some View {
         VStack(spacing: 14) {
@@ -146,7 +147,7 @@ private struct BuildingView: View {
                 .font(Theme.wordmark(28))
                 .foregroundStyle(Theme.ink.opacity(0.9))
             HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
+                if isBusy { ProgressView().controlSize(.small) }
                 Text(statusText).font(.system(size: 13)).foregroundStyle(Theme.inkSoft)
             }
             if let lastLog, !lastLog.isEmpty {

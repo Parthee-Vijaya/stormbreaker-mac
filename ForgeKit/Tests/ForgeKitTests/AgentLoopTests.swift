@@ -36,6 +36,7 @@ private actor NoopProcess: ProcessLayer {
     private let url = URL(string: "http://localhost:5173")!
 
     func writeFile(_ relativePath: String, contents: String) async throws { written.append(relativePath) }
+    func readFile(_ relativePath: String) async throws -> String { "" }
     func addDependencies(_ packages: [String]) async throws {}
     func runShell(_ command: String) async throws -> Int32 { 0 }
     func startDevServerIfNeeded() async throws -> URL { running = true; return url }

@@ -7,12 +7,15 @@ private actor MockProcessLayer: ProcessLayer {
     var installs: [[String]] = []
     var shells: [String] = []
     var startCount = 0
+    var fileContents: [String: String] = [:]
     private var running = false
     private let url = URL(string: "http://localhost:5173")!
 
     func writeFile(_ relativePath: String, contents: String) async throws {
         writes.append((relativePath, contents))
+        fileContents[relativePath] = contents
     }
+    func readFile(_ relativePath: String) async throws -> String { fileContents[relativePath] ?? "" }
     func addDependencies(_ packages: [String]) async throws { installs.append(packages) }
     func runShell(_ command: String) async throws -> Int32 { shells.append(command); return 0 }
     func startDevServerIfNeeded() async throws -> URL { startCount += 1; running = true; return url }
@@ -59,5 +62,17 @@ final class ActionExecutorTests: XCTestCase {
         XCTAssertEqual(startCount, 0)            // no (re)start for a source edit
         let writes = await mock.writes
         XCTAssertEqual(writes.count, 1)
+    }
+
+    func testLineReplaceReadsAppliesAndWritesBack() async throws {
+        let mock = MockProcessLayer()
+        let executor = ActionExecutor(process: mock)
+        try await executor.handle(.fileClose(path: "src/App.tsx", contents: "<h1>Old</h1>"))
+        try await executor.handle(.lineReplaceClose(
+            path: "src/App.tsx",
+            edits: [LineEdit(search: "<h1>Old</h1>", replace: "<h1>New</h1>")]))
+
+        let final = await mock.fileContents["src/App.tsx"]
+        XCTAssertEqual(final, "<h1>New</h1>")
     }
 }

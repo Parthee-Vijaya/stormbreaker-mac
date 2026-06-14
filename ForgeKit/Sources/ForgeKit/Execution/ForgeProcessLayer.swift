@@ -15,6 +15,10 @@ public actor ForgeProcessLayer: ProcessLayer {
         try await workspace.writeFile(relativePath, contents: contents)
     }
 
+    public func readFile(_ relativePath: String) async throws -> String {
+        try await workspace.readFile(relativePath)
+    }
+
     public func addDependencies(_ packages: [String]) async throws {
         guard !packages.isEmpty else { return }
         let command = "npm install " + packages.joined(separator: " ")

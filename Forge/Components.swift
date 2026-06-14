@@ -10,6 +10,7 @@ struct Composer: View {
     var isBusy: Bool
     var autofocus: Bool = false
     var onSubmit: () -> Void
+    var onStop: (() -> Void)? = nil
 
     @FocusState private var focused: Bool
 
@@ -32,21 +33,32 @@ struct Composer: View {
                     return .handled
                 }
 
-            Button(action: onSubmit) {
-                Group {
-                    if isBusy {
-                        ProgressView().controlSize(.small).tint(Theme.onAccent)
-                    } else {
-                        Image(systemName: "arrow.up").font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Theme.onAccent)
-                    }
+            if isBusy, let onStop {
+                Button(action: onStop) {
+                    Image(systemName: "stop.fill").font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Theme.onAccent)
+                        .frame(width: 30, height: 30)
+                        .background(Theme.accent, in: Circle())
                 }
-                .frame(width: 30, height: 30)
-                .background(canSend || isBusy ? Theme.accent : Theme.borderStrong, in: Circle())
+                .buttonStyle(.plain)
+                .help("Stop generation")
+            } else {
+                Button(action: onSubmit) {
+                    Group {
+                        if isBusy {
+                            ProgressView().controlSize(.small).tint(Theme.onAccent)
+                        } else {
+                            Image(systemName: "arrow.up").font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(Theme.onAccent)
+                        }
+                    }
+                    .frame(width: 30, height: 30)
+                    .background(canSend || isBusy ? Theme.accent : Theme.borderStrong, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.return, modifiers: .command)
+                .disabled(!canSend)
             }
-            .buttonStyle(.plain)
-            .keyboardShortcut(.return, modifiers: .command)
-            .disabled(!canSend)
         }
         .padding(10)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusL))

@@ -9,6 +9,8 @@ public enum ParserEvent: Sendable, Equatable {
     case fileOpen(path: String)
     case fileChunk(path: String, text: String)     // streamed file content (UI progress)
     case fileClose(path: String, contents: String) // file complete → write it now
+    case lineReplaceOpen(path: String)             // a search/replace edit begins
+    case lineReplaceClose(path: String, edits: [LineEdit]) // edits parsed → apply now
     case inlineAction(ForgeAction)                  // shell / start / add-dependency (queued)
     case artifactClose
 }

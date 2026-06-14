@@ -139,9 +139,9 @@ public actor AgentLoop {
         switch event {
         case .text(let text):
             continuation.yield(.assistantText(text))
-        case .fileOpen(let path):
+        case .fileOpen(let path), .lineReplaceOpen(let path):
             continuation.yield(.fileWriting(path))
-        case .fileClose(let path, _):
+        case .fileClose(let path, _), .lineReplaceClose(let path, _):
             try await executor.handle(event)
             continuation.yield(.fileWritten(path))
         case .artifactClose:

@@ -41,7 +41,8 @@ struct ChatView: View {
                     onSubmit: {
                         if model.selectedElement != nil { model.applyVisualEdit(model.draft) }
                         else { model.submit() }
-                    }
+                    },
+                    onStop: { model.cancelGeneration() }
                 )
             }
             .padding(12)

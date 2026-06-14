@@ -26,6 +26,7 @@ public final class StreamingArtifactParser {
         case inArtifact
         case inActionTag
         case inFileBody(path: String)
+        case inLineReplaceBody(path: String)
         case inInlineBody(type: String)
     }
 
@@ -67,6 +68,8 @@ public final class StreamingArtifactParser {
                 progressing = drainActionTag(&events)
             case .inFileBody(let path):
                 progressing = drainFileBody(path: path, &events, atEnd: atEnd)
+            case .inLineReplaceBody(let path):
+                progressing = drainLineReplaceBody(path: path, &events, atEnd: atEnd)
             case .inInlineBody(let type):
                 progressing = drainInlineBody(type: type, &events, atEnd: atEnd)
             }
@@ -137,6 +140,11 @@ public final class StreamingArtifactParser {
             fileContents = ""
             events.append(.fileOpen(path: path))
             state = .inFileBody(path: path)
+        } else if type == "line-replace" {
+            let path = attribute("filePath", in: tag) ?? ""
+            fileContents = ""
+            events.append(.lineReplaceOpen(path: path))
+            state = .inLineReplaceBody(path: path)
         } else {
             inlineBuffer = ""
             state = .inInlineBody(type: type)
@@ -168,6 +176,25 @@ public final class StreamingArtifactParser {
         return false
     }
 
+    /// Captures a line-replace body exactly like a file body (raw, terminated
+    /// only by `</forgeAction>` so diff markers and JSX are safe), then parses it
+    /// into search/replace edits on close.
+    private func drainLineReplaceBody(path: String, _ events: inout [ParserEvent], atEnd: Bool) -> Bool {
+        if let close = buffer.range(of: Self.actionCloseMarker) {
+            fileContents += String(buffer[..<close.lowerBound])
+            buffer = String(buffer[close.upperBound...])
+            let edits = Self.parseLineEdits(stripCodeFence(trimEdges(fileContents)))
+            events.append(.lineReplaceClose(path: path, edits: edits))
+            fileContents = ""
+            state = .inArtifact
+            return true
+        }
+        let hold = atEnd ? "" : longestSuffixPrefix(of: buffer, matching: Self.actionCloseMarker)
+        fileContents += String(buffer.dropLast(hold.count))
+        buffer = hold
+        return false
+    }
+
     private func drainInlineBody(type: String, _ events: inout [ParserEvent], atEnd: Bool) -> Bool {
         if let close = buffer.range(of: Self.actionCloseMarker) {
             inlineBuffer += String(buffer[..<close.lowerBound])
@@ -193,8 +220,38 @@ public final class StreamingArtifactParser {
         case "shell": return .shell(command: payload)
         case "start": return .start(command: payload)
         case "add-dependency": return .addDependency(package: payload)
-        default: return nil // "file" handled separately; "line-replace"/unknown reserved → skip
+        default: return nil // "file"/"line-replace" handled separately; unknown → skip
         }
+    }
+
+    /// Parse `<<<<<<< SEARCH … ======= … >>>>>>> REPLACE` blocks into edits.
+    /// Marker lines are matched by prefix so a trailing label (`SEARCH`) or
+    /// whitespace is tolerated; everything else is verbatim content.
+    static func parseLineEdits(_ body: String) -> [LineEdit] {
+        enum Section { case none, search, replace }
+        var edits: [LineEdit] = []
+        var section: Section = .none
+        var search: [String] = []
+        var replace: [String] = []
+        for line in body.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("<<<<<<<") {
+                section = .search; search = []; replace = []
+            } else if trimmed.hasPrefix("=======") && section == .search {
+                section = .replace
+            } else if trimmed.hasPrefix(">>>>>>>") && section == .replace {
+                edits.append(LineEdit(search: search.joined(separator: "\n"),
+                                      replace: replace.joined(separator: "\n")))
+                section = .none
+            } else {
+                switch section {
+                case .search: search.append(line)
+                case .replace: replace.append(line)
+                case .none: break
+                }
+            }
+        }
+        return edits
     }
 
     private func attribute(_ name: String, in tag: String) -> String? {
