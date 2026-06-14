@@ -21,6 +21,7 @@ public enum AgentEvent: Sendable {
     case reasoning(String)       // reasoning-model "thinking", shown collapsibly
     case state(AgentState)
     case fileWriting(String)
+    case fileChunk(String, String)  // (path, text) — streamed file body for the live editor
     case fileWritten(String)
     case previewReady(URL)
 }

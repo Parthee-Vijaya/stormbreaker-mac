@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `137d2e4` 2026-06-14 — B5 follow-up: pin icons to lucide-react in the prompt
 - `42f5753` 2026-06-14 — B5: pre-vendor shadcn/ui in the template (big jump in generated UI quality)
 - `cd28b28` 2026-06-14 — Make Forge a capable website builder: images + rich multi-section pages
 - `02cb3a9` 2026-06-14 — Add auto-fix / "Fix it" for runtime errors (B12) + harden Preferences decoding

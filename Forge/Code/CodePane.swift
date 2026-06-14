@@ -62,14 +62,21 @@ private struct CodeEditorView: View {
             HStack(spacing: 8) {
                 Text(model.selectedFile ?? "No file selected")
                     .font(.system(size: 12, design: .monospaced)).foregroundStyle(Theme.inkSoft)
-                if model.editorDirty { Circle().fill(Theme.inkFaint).frame(width: 6, height: 6) }
+                if model.isStreamingFile {
+                    HStack(spacing: 5) {
+                        ProgressView().controlSize(.small).scaleEffect(0.7)
+                        Text("writing…").font(.system(size: 11)).foregroundStyle(Theme.accent)
+                    }
+                } else if model.editorDirty {
+                    Circle().fill(Theme.inkFaint).frame(width: 6, height: 6)
+                }
                 Spacer()
                 Button { Task { await model.saveNow() } } label: {
                     Text("Save").font(.system(size: 11, weight: .medium))
                 }
                 .buttonStyle(.plain).foregroundStyle(Theme.inkSoft)
                 .keyboardShortcut("s", modifiers: .command)
-                .disabled(model.selectedFile == nil)
+                .disabled(model.selectedFile == nil || model.isStreamingFile)
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(Theme.sidebar)
@@ -79,7 +86,7 @@ private struct CodeEditorView: View {
                 VStack { Spacer(); Text("Select a file to edit").foregroundStyle(Theme.inkFaint); Spacer() }
                     .frame(maxWidth: .infinity)
             } else {
-                CodeTextView(text: $model.editorText)
+                CodeTextView(text: $model.editorText, autoScroll: model.isStreamingFile)
                     .background(Theme.canvas)
                     .onChange(of: model.editorText) { model.onEditorChange() }
             }
@@ -93,6 +100,7 @@ private struct CodeEditorView: View {
 /// which corrupts JSX). Undo enabled.
 struct CodeTextView: NSViewRepresentable {
     @Binding var text: String
+    var autoScroll: Bool = false
 
     func makeNSView(context: Context) -> NSScrollView {
         let textView = NSTextView()
@@ -124,7 +132,15 @@ struct CodeTextView: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
-        if textView.string != text { textView.string = text }
+        if textView.string != text {
+            textView.string = text
+            if autoScroll {
+                // Live-typing: keep the caret + viewport at the end as code streams in.
+                let end = NSRange(location: (text as NSString).length, length: 0)
+                textView.setSelectedRange(end)
+                textView.scrollRangeToVisible(end)
+            }
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }

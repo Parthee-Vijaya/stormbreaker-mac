@@ -67,6 +67,7 @@ final class AppModel {
     var selectedFile: String?
     var editorText: String = ""
     var editorDirty: Bool = false
+    var isStreamingFile: Bool = false   // C2: a file is being "typed" live into the editor
 
     // Deploy
     var isDeploying = false
@@ -106,6 +107,8 @@ final class AppModel {
     @ObservationIgnored private var agentTask: Task<Void, Never>?
     @ObservationIgnored private var autoFixTask: Task<Void, Never>?
     @ObservationIgnored private var lastAutoFixSignature: String?
+    @ObservationIgnored private var streamingPath: String?      // file currently being typed live
+    @ObservationIgnored private var autoEngagedCode = false      // auto-switched to Code for streaming
     @ObservationIgnored private var logTask: Task<Void, Never>?
     @ObservationIgnored private var autosaveTask: Task<Void, Never>?
     @ObservationIgnored private var lastLoadedText = ""
@@ -514,6 +517,7 @@ final class AppModel {
 
     /// Debounced autosave: writing the file lets Vite HMR refresh the preview.
     func onEditorChange() {
+        guard !isStreamingFile else { return }   // C2: live-typed chunks aren't user edits
         guard editorText != lastLoadedText else { return }
         editorDirty = true
         autosaveTask?.cancel()
@@ -624,14 +628,38 @@ final class AppModel {
                 statusText = Self.statusText(for: state)
             case .fileWriting(let path):
                 statusText = "Writing \(path)…"
+                beginStreaming(path)
+            case .fileChunk(let path, let text):
+                if path == streamingPath { editorText += text }
             case .fileWritten(let path):
                 addFile(path, to: assistantIndex)
+                if path == streamingPath { streamingPath = nil }
             case .previewReady(let url):
                 previewURL = url
+                endStreaming()
             }
         }
+        endStreaming()
         await refreshFiles()
         persistCurrentChat()
+    }
+
+    /// C2 — stream the file being written into the editor: auto-switch to Code,
+    /// clear the buffer, and let `.fileChunk` append to it (autosave suppressed).
+    private func beginStreaming(_ path: String) {
+        if rightPaneMode == .preview { autoEngagedCode = true; rightPaneMode = .code }
+        selectedFile = path
+        editorText = ""
+        lastLoadedText = ""
+        streamingPath = path
+        isStreamingFile = true
+    }
+
+    private func endStreaming() {
+        guard isStreamingFile else { return }
+        isStreamingFile = false
+        streamingPath = nil
+        if autoEngagedCode { autoEngagedCode = false; rightPaneMode = .preview }
     }
 
     /// Plan-mode turn: stream a plan + reasoning, write nothing. The model's

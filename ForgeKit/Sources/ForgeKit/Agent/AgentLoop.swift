@@ -226,6 +226,8 @@ public actor AgentLoop {
             continuation.yield(.assistantText(text))
         case .fileOpen(let path), .lineReplaceOpen(let path):
             continuation.yield(.fileWriting(path))
+        case .fileChunk(let path, let text):
+            continuation.yield(.fileChunk(path, text))
         case .fileClose(let path, _), .lineReplaceClose(let path, _):
             try await executor.handle(event)
             continuation.yield(.fileWritten(path))
