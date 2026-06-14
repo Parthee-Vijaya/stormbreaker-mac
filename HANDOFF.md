@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `5dfa718` 2026-06-14 — Recover from stalled model streams (watchdog + force-cancel)
 - `4081b87` 2026-06-14 — C2: live "file being typed" animation as the agent writes
 - `137d2e4` 2026-06-14 — B5 follow-up: pin icons to lucide-react in the prompt
 - `42f5753` 2026-06-14 — B5: pre-vendor shadcn/ui in the template (big jump in generated UI quality)

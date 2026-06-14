@@ -62,6 +62,17 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Modeller & roller") {
+                rolePicker("Plan-model", selection: $model.preferences.planModelID)
+                rolePicker("Build-model", selection: $model.preferences.buildModelID)
+                rolePicker("Dansk copy-model", selection: $model.preferences.copyModelID)
+                Toggle("Kør dansk copy-pass automatisk efter build",
+                       isOn: $model.preferences.autoCopyPass)
+                    .disabled(model.preferences.copyModelID.isEmpty)
+                Text("Tildel forskellige modeller til at planlægge, bygge og oversætte. Tom = brug den valgte standard-model. Copy-passet omskriver kun synlig tekst til dansk — koden røres ikke, og det kan rulles tilbage via checkpoints.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+
             Section("Cloud-model (valgfri)") {
                 Picker("Udbyder", selection: $model.preferences.cloudProvider) {
                     Text("Ingen / lokal").tag("")
@@ -149,6 +160,22 @@ struct SettingsView: View {
         if panel.runModal() == .OK, let url = panel.url {
             model.preferences.projectsRoot = url.path
             model.applyPreferences()
+        }
+    }
+
+    /// A role → model picker (B25). "Standard-model" (empty tag) falls back to the
+    /// header-selected model. Lists every available model incl. an optional cloud
+    /// one; keeps a stale id selectable so a not-currently-served model isn't lost.
+    private func rolePicker(_ title: String, selection: Binding<String>) -> some View {
+        Picker(title, selection: selection) {
+            Text("Standard-model").tag("")
+            ForEach(model.availableModels) { config in
+                Text("\(config.displayName)  ·  \(sourceLabel(config.source))").tag(config.id)
+            }
+            if !selection.wrappedValue.isEmpty,
+               !model.availableModels.contains(where: { $0.id == selection.wrappedValue }) {
+                Text(selection.wrappedValue).tag(selection.wrappedValue)
+            }
         }
     }
 

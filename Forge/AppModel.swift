@@ -157,6 +157,30 @@ final class AppModel {
         availableModels.first { $0.id == selectedModelID } ?? .localDefault
     }
 
+    /// Multi-model roles (B25). Plan/build/copy can each use a different model;
+    /// an unset role falls back to the model picked in the header.
+    enum ModelRole { case plan, build, copy }
+
+    func modelFor(_ role: ModelRole) -> ModelConfig {
+        let id: String
+        switch role {
+        case .plan: id = preferences.planModelID
+        case .build: id = preferences.buildModelID
+        case .copy: id = preferences.copyModelID
+        }
+        return availableModels.first { $0.id == id } ?? selectedModel
+    }
+
+    /// The configured Danish copy model, or nil if none is set / discovered.
+    /// `nil` disables the copy-pass entirely.
+    var copyModel: ModelConfig? {
+        guard !preferences.copyModelID.isEmpty else { return nil }
+        return availableModels.first { $0.id == preferences.copyModelID }
+    }
+
+    /// Whether the manual "Dansk copy" action is currently available.
+    var canCopyPass: Bool { copyModel != nil && hasStarted && templateInstalled && !isBusy }
+
     /// Re-discover local models (Ollama + LM Studio) plus the optional cloud
     /// model. Called at launch and from the picker's Refresh button.
     func refreshModels() async {
@@ -209,11 +233,16 @@ final class AppModel {
         Task { await refreshModels() }
     }
 
-    /// System prompt = base + user name + global memory + project AI_RULES.md.
-    private func composedSystemPrompt(mode: AgentLoop.Mode = .build) async -> String {
-        let base = mode == .plan
-            ? SystemPrompt.plan
-            : SystemPrompt.forge(lineReplace: selectedModel.supportsLineReplace)
+    /// System prompt = role-specific base + user name + global memory + project
+    /// AI_RULES.md. The base depends on the turn's role and the model driving it
+    /// (line-replace capability gates the edit format).
+    private func composedSystemPrompt(role: ModelRole, config: ModelConfig) async -> String {
+        let base: String
+        switch role {
+        case .plan: base = SystemPrompt.plan
+        case .build: base = SystemPrompt.forge(lineReplace: config.supportsLineReplace)
+        case .copy: base = SystemPrompt.copyPass(lineReplace: config.supportsLineReplace)
+        }
         var parts = [base]
         if !preferences.userName.isEmpty {
             parts.append("The user you are helping is called \(preferences.userName). Address them by name when natural.")
@@ -545,22 +574,47 @@ final class AppModel {
     func submit() {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty, !isBusy else { return }
-        if messages.isEmpty { renameCurrent(to: Self.projectName(from: prompt)) }
         draft = ""
+        let mode = chatMode
+        beginTurn(visiblePrompt: prompt, modelPrompt: prompt,
+                  mode: mode, role: mode == .plan ? .plan : .build)
+    }
+
+    /// Run the Danish copy-pass (B25): a normal build turn driven by the COPY
+    /// model that rewrites all user-facing text to Danish. It reuses the full
+    /// pipeline (snapshot → parser → executor → HMR → self-correction), so the
+    /// pass is checkpointed and any breakage repairs itself. No-op if no copy
+    /// model is configured.
+    func runCopyPass() {
+        guard canCopyPass else { return }
+        let visible = "Oversæt appen til dansk"
+        let instruction = "Localize ALL user-facing text in the current app into natural, "
+            + "idiomatic Danish. Change ONLY the visible copy — keep code, structure, "
+            + "imports, classNames, and logic identical."
+        beginTurn(visiblePrompt: visible, modelPrompt: instruction, mode: .build, role: .copy)
+    }
+
+    /// Append a user+assistant message pair and kick off the agent task. Shared by
+    /// `submit()` and `runCopyPass()`. `visiblePrompt` is what the chat shows;
+    /// `modelPrompt` is what the model receives (they differ for the copy-pass).
+    private func beginTurn(visiblePrompt: String, modelPrompt: String,
+                           mode: AgentLoop.Mode, role: ModelRole) {
+        if messages.isEmpty { renameCurrent(to: Self.projectName(from: visiblePrompt)) }
         hasStarted = true
         jsErrors = []                  // a new turn supersedes prior runtime errors
         lastAutoFixSignature = nil
         autoFixTask?.cancel()
         let history = chatHistory()
-        messages.append(UIMessage(role: .user, text: prompt))
+        messages.append(UIMessage(role: .user, text: visiblePrompt))
         messages.append(UIMessage(role: .assistant, text: ""))
         let assistantIndex = messages.count - 1
         isBusy = true
-        let mode = chatMode
 
         agentTask = Task {
-            await runAgent(prompt: prompt, history: history, assistantIndex: assistantIndex, mode: mode)
-            if Task.isCancelled {
+            await runAgent(prompt: modelPrompt, history: history,
+                           assistantIndex: assistantIndex, mode: mode, role: role)
+            let cancelled = Task.isCancelled
+            if cancelled {
                 phase = .idle
                 statusText = "Stopped."
                 if messages.indices.contains(assistantIndex), messages[assistantIndex].text.isEmpty {
@@ -568,10 +622,26 @@ final class AppModel {
                 }
             } else {
                 statusText = Self.statusText(for: phase)
+                // A turn that errored before producing any text would otherwise
+                // sit on the "Working…" placeholder forever — surface why instead.
+                if case .failed(let reason) = phase,
+                   messages.indices.contains(assistantIndex),
+                   messages[assistantIndex].text.isEmpty, messages[assistantIndex].reasoning.isEmpty {
+                    messages[assistantIndex].text = "_Kunne ikke fuldføre: \(Self.briefReason(reason))_"
+                }
             }
             isBusy = false
             agentTask = nil
+            if !cancelled { maybeAutoCopyPass(afterRole: role) }
         }
+    }
+
+    /// After a clean build, automatically run the Danish copy-pass if enabled.
+    /// Gated on `role == .build` so a copy-pass never triggers itself (no loop)
+    /// and a plan turn never triggers one.
+    private func maybeAutoCopyPass(afterRole role: ModelRole) {
+        guard role == .build, preferences.autoCopyPass, copyModel != nil, phase == .clean else { return }
+        runCopyPass()
     }
 
     /// Cancel an in-flight generation. The AgentLoop's stream terminates on the
@@ -581,7 +651,8 @@ final class AppModel {
         agentTask?.cancel()
     }
 
-    private func runAgent(prompt: String, history: [ChatMessage], assistantIndex: Int, mode: AgentLoop.Mode) async {
+    private func runAgent(prompt: String, history: [ChatMessage], assistantIndex: Int,
+                          mode: AgentLoop.Mode, role: ModelRole) async {
         if mode == .plan {
             await runPlan(prompt: prompt, history: history, assistantIndex: assistantIndex)
             return
@@ -603,8 +674,8 @@ final class AppModel {
         }
         await errorCollector.reset()
 
-        let config = selectedModel
-        let systemPrompt = await composedSystemPrompt()
+        let config = modelFor(role)
+        let systemPrompt = await composedSystemPrompt(role: role, config: config)
         let touched = Self.recentTouched(from: messages)
         let deps = AgentLoop.Dependencies(
             provider: ModelRouter.provider(for: config),
@@ -666,8 +737,8 @@ final class AppModel {
     /// `<forgeQuestion>` blocks are parsed out of the text on completion and the
     /// message is marked `isPlan` so the UI can offer "Build this plan".
     private func runPlan(prompt: String, history: [ChatMessage], assistantIndex: Int) async {
-        let config = selectedModel
-        let systemPrompt = await composedSystemPrompt(mode: .plan)
+        let config = modelFor(.plan)
+        let systemPrompt = await composedSystemPrompt(role: .plan, config: config)
         let touched = Self.recentTouched(from: messages)
         let deps = AgentLoop.Dependencies(
             provider: ModelRouter.provider(for: config),
@@ -847,6 +918,13 @@ final class AppModel {
                 }
             }
         }
+    }
+
+    /// First line of a failure reason, capped — for an inline chat message.
+    static func briefReason(_ reason: String) -> String {
+        let firstLine = reason.split(whereSeparator: \.isNewline).first.map(String.init) ?? reason
+        let trimmed = firstLine.trimmingCharacters(in: .whitespaces)
+        return trimmed.count > 160 ? String(trimmed.prefix(160)) + "…" : trimmed
     }
 
     static func statusText(for state: AgentState) -> String {

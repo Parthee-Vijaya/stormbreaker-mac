@@ -149,6 +149,8 @@ projekt-regler ind i hver tur uden ekstra arbejde.
 
 24. **Åbn koden i ekstern editor (VS Code / Xcode)** — åbn det genererede projekt direkte i den *rette* editor, valgt efter hvad man bygger: **VS Code** til web-projekter (Vite/React i dag), **Xcode** når et projekt er et native/Swift-mål (fremtid, jf. B7-parametrisering). *Sådan:* en "Åbn i…"-handling i `ProjectMenu` + preview-toolbar; detektér type (web = `package.json`/`vite.config` → VS Code; `*.xcodeproj`/`Package.swift` → Xcode) og kald `NSWorkspace.shared.open(dir)` med `open -a "Visual Studio Code"` / `open -a Xcode`; fald tilbage til Finder hvis editoren ikke er installeret. Live ekstern redigering virker allerede med dev-serverens HMR. Udvider B13's "åbn i VS Code". **S · P1**
 
+25. **Multi-model roller + dansk copy-pass (agentisk)** — ✅ *bygget.* Tildel forskellige lokale modeller til **roller**: plan-model (fx nemotron, god til at arkitektere), build-model (fx qwen3.6, præcis bygger) og dansk copy-model (fx munin-qwen3.5-9b). Modellerne "bruger hinanden": build-modellen bygger, og en **copy-pass** lader copy-modellen omskrive al brugervendt tekst til naturligt dansk *uden* at røre kode/struktur/classNames. *Sådan:* `Preferences.{plan,build,copy}ModelID` + `autoCopyPass`; `AppModel.modelFor(role:)` (falder tilbage til den valgte model) + `runCopyPass()` der genbruger hele build-pipelinen (checkpoint → parser → executor → HMR → self-correction); `SystemPrompt.copyPass` med stærke "kun synlig tekst"-regler; rolle-pickers i Settings + "Dansk copy"-knap i chatten. Auto-kør efter clean build når en copy-model er sat. **M · P1**
+
 ---
 
 ## C. 20 DESIGN-FORSLAG (UI/UX/visuelt)

@@ -51,6 +51,23 @@ struct ChatView: View {
                     .background(Theme.fill, in: Capsule())
                     .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.3), lineWidth: 1))
                 }
+                if model.canCopyPass {
+                    HStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        Button { model.runCopyPass() } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "character.bubble").font(.system(size: 10))
+                                Text("Dansk copy").font(.system(size: 11, weight: .medium))
+                            }
+                            .foregroundStyle(Theme.accent)
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(Theme.fill, in: Capsule())
+                            .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.3), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Omskriv al brugervendt tekst til dansk med copy-modellen")
+                    }
+                }
                 Composer(
                     text: $model.draft,
                     placeholder: composerPlaceholder(model),

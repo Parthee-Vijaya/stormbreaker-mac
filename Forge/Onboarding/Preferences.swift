@@ -19,6 +19,16 @@ struct Preferences: Codable, Equatable {
     /// available regardless).
     var autoFix = false
 
+    /// Multi-model roles (B25). Each holds a ModelConfig.id; empty = fall back to
+    /// the currently-selected model. The copy model localizes user-facing text to
+    /// Danish in a post-build pass; an empty `copyModelID` means no copy-pass.
+    var planModelID = ""
+    var buildModelID = ""
+    var copyModelID = ""
+    /// Run the Danish copy-pass automatically after a successful build (only when
+    /// a copy model is set).
+    var autoCopyPass = false
+
     static let defaultRules = """
     # Project rules
 
@@ -42,6 +52,7 @@ extension Preferences {
     enum CodingKeys: String, CodingKey {
         case onboarded, userName, projectsRoot, defaultModelID, cloudProvider
         case cloudModel, githubOwner, vercelScope, memory, rulesTemplate, autoFix
+        case planModelID, buildModelID, copyModelID, autoCopyPass
     }
 
     init(from decoder: Decoder) throws {
@@ -58,5 +69,9 @@ extension Preferences {
         memory = (try? c.decode(String.self, forKey: .memory)) ?? memory
         rulesTemplate = (try? c.decode(String.self, forKey: .rulesTemplate)) ?? rulesTemplate
         autoFix = (try? c.decode(Bool.self, forKey: .autoFix)) ?? autoFix
+        planModelID = (try? c.decode(String.self, forKey: .planModelID)) ?? planModelID
+        buildModelID = (try? c.decode(String.self, forKey: .buildModelID)) ?? buildModelID
+        copyModelID = (try? c.decode(String.self, forKey: .copyModelID)) ?? copyModelID
+        autoCopyPass = (try? c.decode(Bool.self, forKey: .autoCopyPass)) ?? autoCopyPass
     }
 }
