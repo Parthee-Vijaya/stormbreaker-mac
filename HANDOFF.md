@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `9f610e9` 2026-06-15 — Roadmap: mark Midnat theme, link→design, orphan sweep, template gallery done
 - `ae70170` 2026-06-15 — Template gallery on the launch screen (B6)
 - `3d17993` 2026-06-15 — Kill leaked dev servers across all projects on launch
 - `b047d9c` 2026-06-15 — Copy this design: capture a website screenshot from a link
@@ -93,5 +94,4 @@ ollama list | grep qwen2.5-coder
 - `137d2e4` 2026-06-14 — B5 follow-up: pin icons to lucide-react in the prompt
 - `42f5753` 2026-06-14 — B5: pre-vendor shadcn/ui in the template (big jump in generated UI quality)
 - `cd28b28` 2026-06-14 — Make Forge a capable website builder: images + rich multi-section pages
-- `02cb3a9` 2026-06-14 — Add auto-fix / "Fix it" for runtime errors (B12) + harden Preferences decoding
 <!-- COMMITLOG:END -->
