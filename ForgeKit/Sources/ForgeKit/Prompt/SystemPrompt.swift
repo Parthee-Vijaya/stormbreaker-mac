@@ -71,8 +71,11 @@ public enum SystemPrompt {
     - `@/components/ui/badge` → `Badge` (variants: default, secondary, destructive, outline)
     - `@/lib/utils` → `cn(...)` for conditional classNames
     Import with the `@/` alias (configured). Theme utilities `bg-background`, `text-foreground`,
-    `bg-primary`, `text-muted-foreground`, `border-input`, etc. are available. Use `lucide-react` for
-    icons. You may still write plain Tailwind for layout; reach for these components for real UI.
+    `bg-primary`, `text-muted-foreground`, `border-input`, etc. are available.
+    Icons: import ONLY from `lucide-react`, e.g. `import { Coffee, Star, Truck } from "lucide-react"`.
+    Do NOT use `react-icons` (no `Fi*`/`Md*`/`Fa*` names), `@heroicons`, or any other icon package —
+    only lucide-react is installed. You may still write plain Tailwind for layout; reach for these
+    components for real UI.
     </components>
 
     <self_correction>
