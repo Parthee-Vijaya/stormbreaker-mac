@@ -391,6 +391,68 @@ final class AppModel {
         return URL(string: String(text[range]))
     }
 
+    // MARK: - Project access (B13 / B24)
+
+    /// Open the project in an external editor, chosen by what it is: VS Code /
+    /// Cursor for web projects, Xcode for native/Swift targets. Edits there flow
+    /// to the live preview via Vite HMR. Falls back to Finder if none is found.
+    func openInEditor() {
+        let dir = ProjectStore.dir(for: currentProject)
+        let candidates = projectIsNative(dir)
+            ? ["com.apple.dt.Xcode"]
+            : ["com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "com.vscodium", "com.apple.dt.Xcode"]
+        for bundleID in candidates {
+            if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+                NSWorkspace.shared.open([dir], withApplicationAt: appURL,
+                                        configuration: NSWorkspace.OpenConfiguration())
+                statusText = "Opened in \(appURL.deletingPathExtension().lastPathComponent)."
+                return
+            }
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([dir])
+        statusText = "No external editor found — revealed in Finder."
+    }
+
+    func revealInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([ProjectStore.dir(for: currentProject)])
+    }
+
+    /// Export the project as a zip (source only — no node_modules/.forge/.git).
+    func exportZip() {
+        let dir = ProjectStore.dir(for: currentProject)
+        let panel = NSSavePanel()
+        panel.title = "Export project"
+        panel.nameFieldStringValue = "forge-\(Self.slug(currentProject.name)).zip"
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, let out = panel.url else { return }
+        statusText = "Exporting…"
+        Task {
+            let ok = await Self.zipProject(at: dir, to: out)
+            statusText = ok ? "Exported \(out.lastPathComponent)." : "Export failed."
+            if ok { NSWorkspace.shared.activateFileViewerSelecting([out]) }
+        }
+    }
+
+    private func projectIsNative(_ dir: URL) -> Bool {
+        let fm = FileManager.default
+        if fm.fileExists(atPath: dir.appendingPathComponent("Package.swift").path) { return true }
+        let contents = (try? fm.contentsOfDirectory(atPath: dir.path)) ?? []
+        return contents.contains { $0.hasSuffix(".xcodeproj") || $0.hasSuffix(".xcworkspace") }
+    }
+
+    nonisolated static func zipProject(at dir: URL, to out: URL) async -> Bool {
+        try? FileManager.default.removeItem(at: out)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+        process.currentDirectoryURL = dir
+        process.arguments = ["-r", "-q", "-X", out.path, ".",
+                             "-x", "node_modules/*", "*/node_modules/*",
+                             ".forge/*", ".git/*", "dist/*", ".DS_Store"]
+        do { try process.run() } catch { return false }
+        process.waitUntilExit()
+        return process.terminationStatus == 0
+    }
+
     // MARK: - Visual editing
 
     func toggleSelectMode() {

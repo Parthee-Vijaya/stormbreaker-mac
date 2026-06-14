@@ -234,7 +234,15 @@ struct ProjectMenu: View {
             }
             Divider()
             Button { model.newProject() } label: { Label("New project", systemImage: "plus") }
+            if model.hasStarted {
+                Button { model.openInEditor() } label: {
+                    Label("Open in editor", systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+                Button { model.revealInFinder() } label: { Label("Reveal in Finder", systemImage: "folder") }
+                Button { model.exportZip() } label: { Label("Export as Zip…", systemImage: "archivebox") }
+            }
             if model.projects.count > 1 {
+                Divider()
                 Button(role: .destructive) {
                     model.deleteProject(model.currentProject)
                 } label: {
