@@ -89,6 +89,11 @@ final class AppModel {
     var showGlossary = false
     @ObservationIgnored private var lessonQueue: [String] = []   // milestone ids waiting to show
 
+    // Start screen (clone from Git)
+    var showCloneDialog = false
+    var cloneURL = ""
+    @ObservationIgnored private var cloneTask: Task<Void, Never>?
+
     // Diagnostics
     var serverLog: [LogLine] = []
     var jsErrors: [RuntimeIssue] = []
@@ -628,6 +633,131 @@ final class AppModel {
         try? await workspace.writeFile(path, contents: editorText)
         lastLoadedText = editorText
         editorDirty = false
+    }
+
+    // MARK: - Start screen
+
+    /// How to address the user: preferred name, else onboarding name, else nothing.
+    var greetingName: String {
+        let preferred = preferences.preferredName.trimmingCharacters(in: .whitespaces)
+        if !preferred.isEmpty { return preferred }
+        return preferences.userName.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// The personalized start-screen heading.
+    var startGreeting: String {
+        greetingName.isEmpty ? "Hvad vil du bygge?" : "Hvad vil du bygge, \(greetingName)?"
+    }
+
+    /// Show the first-run name popup only once (until answered or skipped).
+    var shouldAskPreferredName: Bool {
+        preferences.preferredName.trimmingCharacters(in: .whitespaces).isEmpty && !preferences.askedPreferredName
+    }
+
+    func setPreferredName(_ name: String) {
+        preferences.preferredName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        preferences.askedPreferredName = true
+        savePreferences()
+    }
+
+    func skipPreferredNamePrompt() {
+        preferences.askedPreferredName = true
+        savePreferences()
+    }
+
+    static let examplePrompts = [
+        "En prisside med tre planer og en CTA",
+        "En pomodoro-timer med start, pause og nulstil",
+        "En todo-app med tilføj, fuldfør og slet",
+        "En landingsside for en kaffebar med hero og menu",
+    ]
+
+    /// Fill a random example into the composer and build it.
+    func tryExample() {
+        guard !isBusy else { return }
+        draft = Self.examplePrompts.randomElement() ?? "En todo-app med tilføj og fuldfør"
+        submit()
+    }
+
+    /// Begin the guided tutorial: turn learning mode on, reset the lessons so the
+    /// explainer cards re-fire, and seed a simple first build for the user to run.
+    func startTutorial() {
+        guard !isBusy else { return }
+        preferences.learningMode = true
+        preferences.learnedLessons = []
+        savePreferences()
+        draft = "En simpel todo-app med tilføj, fuldfør og slet"
+    }
+
+    /// Clone a Git repo into a new project, open it, and (if it's a Node/Vite
+    /// project) install deps + start the dev server so the preview works.
+    func cloneFromGit() {
+        let url = cloneURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !url.isEmpty, !isBusy else { return }
+        showCloneDialog = false
+        cloneURL = ""
+        let name = Self.repoName(from: url)
+        persistCurrentChat()
+        let project = ProjectStore.makeProject(name: name)
+        projects.insert(project, at: 0)
+        ProjectStore.saveProjects(projects)
+        activate(project, freshState: true)
+        hasStarted = true
+        isBusy = true
+        phase = .applying
+        statusText = "Kloner \(name)…"
+        messages.append(UIMessage(role: .assistant, text: "Kloner **\(name)** fra Git…"))
+        let index = messages.count - 1
+
+        cloneTask = Task {
+            await runCloneShell("git clone --depth 1 \(Self.shellQuote(url)) . 2>&1")
+            let files = await workspace.fileMap()
+            let cloned = !files.isEmpty
+            var note: String
+            if cloned, await workspace.fileExists("package.json") {
+                statusText = "Installerer afhængigheder…"
+                await runCloneShell("npm install 2>&1")
+                templateInstalled = true
+                let server = devServer
+                Task { try? await server.start() }   // fire-and-forget; preview fills in via the log stream
+                note = "Klonede **\(name)** og er ved at starte den. Bed mig om en ændring, eller åbn koden i Kode-visningen."
+            } else if cloned {
+                note = "Klonede **\(name)**. Det ligner ikke et Node/Vite-projekt, så jeg startede ikke en server — filerne er i Kode-visningen."
+            } else {
+                note = "Kunne ikke klone \(name). Tjek at URL'en er korrekt og at du har adgang til repoet."
+            }
+            if messages.indices.contains(index) { messages[index].text = note }
+            await refreshFiles()
+            rightPaneMode = .code
+            phase = .idle
+            statusText = cloned ? "Klonet." : "Klon fejlede."
+            isBusy = false
+            cloneTask = nil
+            persistCurrentChat()
+        }
+    }
+
+    private func runCloneShell(_ command: String) async {
+        guard let (events, _) = try? await devServer.runShellCommand(command) else { return }
+        for await event in events {
+            if case .log(let line) = event {
+                serverLog.append(line)
+                if serverLog.count > 500 { serverLog.removeFirst(serverLog.count - 500) }
+            }
+        }
+    }
+
+    /// Last path component of a git URL, sans `.git`, as a project name.
+    static func repoName(from url: String) -> String {
+        let trimmed = url.trimmingCharacters(in: .whitespaces)
+        let noGit = trimmed.hasSuffix(".git") ? String(trimmed.dropLast(4)) : trimmed
+        let last = noGit.split(whereSeparator: { $0 == "/" || $0 == ":" }).last.map(String.init) ?? "repo"
+        let cleaned = last.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return cleaned.isEmpty ? "repo" : String(cleaned.prefix(40))
+    }
+
+    static func shellQuote(_ s: String) -> String {
+        "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     // MARK: - Image attachments (B4)

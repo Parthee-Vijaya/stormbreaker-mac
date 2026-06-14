@@ -17,7 +17,7 @@ struct ContentView: View {
                 }
                 .transition(.opacity)
             } else {
-                EmptyStateView()
+                StartScreen()
                     .transition(.opacity)
             }
         }

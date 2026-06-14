@@ -35,6 +35,12 @@ struct Preferences: Codable, Equatable {
     var learningMode = false
     var learnedLessons: [String] = []
 
+    /// How the user likes to be addressed in the start-screen greeting ("Hvad vil
+    /// du bygge, P?"). Asked once via a popup; editable in Settings.
+    /// `askedPreferredName` stops the popup from re-appearing if left blank.
+    var preferredName = ""
+    var askedPreferredName = false
+
     static let defaultRules = """
     # Project rules
 
@@ -60,6 +66,7 @@ extension Preferences {
         case cloudModel, githubOwner, vercelScope, memory, rulesTemplate, autoFix
         case planModelID, buildModelID, copyModelID, autoCopyPass
         case learningMode, learnedLessons
+        case preferredName, askedPreferredName
     }
 
     init(from decoder: Decoder) throws {
@@ -82,5 +89,7 @@ extension Preferences {
         autoCopyPass = (try? c.decode(Bool.self, forKey: .autoCopyPass)) ?? autoCopyPass
         learningMode = (try? c.decode(Bool.self, forKey: .learningMode)) ?? learningMode
         learnedLessons = (try? c.decode([String].self, forKey: .learnedLessons)) ?? learnedLessons
+        preferredName = (try? c.decode(String.self, forKey: .preferredName)) ?? preferredName
+        askedPreferredName = (try? c.decode(Bool.self, forKey: .askedPreferredName)) ?? askedPreferredName
     }
 }

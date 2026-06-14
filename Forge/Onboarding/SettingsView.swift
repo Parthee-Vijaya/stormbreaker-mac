@@ -18,6 +18,9 @@ struct SettingsView: View {
         Form {
             Section("Dig") {
                 TextField("Navn", text: $model.preferences.userName)
+                TextField("Foretrukken tiltale (fx P)", text: $model.preferences.preferredName)
+                Text("Sådan hilser Forge på dig på startskærmen — “Hvad vil du bygge, P?”.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
             }
 
             Section("Projekter") {
