@@ -25,6 +25,7 @@ final class OllamaProviderLiveTests: XCTestCase {
         ) {
             switch event {
             case .token(let token): text += token
+            case .reasoning: break
             case .done: sawDone = true
             }
         }

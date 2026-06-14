@@ -12,6 +12,9 @@ final class AppModel {
         let role: Role
         var text: String
         var files: [String] = []
+        var reasoning: String = ""   // reasoning-model "thinking", shown collapsibly
+        var isPlan: Bool = false     // a plan-mode response → show "Build this plan"
+        var questions: [PlanQuestion] = []   // clarifying questions → tappable chips
     }
 
     enum PreviewWidth: CaseIterable {
@@ -46,6 +49,7 @@ final class AppModel {
     var draft: String = ""
     var isBusy: Bool = false
     var statusText: String = "Ready."
+    var chatMode: AgentLoop.Mode = .build   // Plan vs Build toggle in the composer
 
     // Layout: the preview pane only appears once the first build has started.
     var hasStarted: Bool = false
@@ -198,8 +202,11 @@ final class AppModel {
     }
 
     /// System prompt = base + user name + global memory + project AI_RULES.md.
-    private func composedSystemPrompt() async -> String {
-        var parts = [SystemPrompt.forge(lineReplace: selectedModel.supportsLineReplace)]
+    private func composedSystemPrompt(mode: AgentLoop.Mode = .build) async -> String {
+        let base = mode == .plan
+            ? SystemPrompt.plan
+            : SystemPrompt.forge(lineReplace: selectedModel.supportsLineReplace)
+        var parts = [base]
         if !preferences.userName.isEmpty {
             parts.append("The user you are helping is called \(preferences.userName). Address them by name when natural.")
         }
@@ -474,9 +481,10 @@ final class AppModel {
         messages.append(UIMessage(role: .assistant, text: ""))
         let assistantIndex = messages.count - 1
         isBusy = true
+        let mode = chatMode
 
         agentTask = Task {
-            await runAgent(prompt: prompt, history: history, assistantIndex: assistantIndex)
+            await runAgent(prompt: prompt, history: history, assistantIndex: assistantIndex, mode: mode)
             if Task.isCancelled {
                 phase = .idle
                 statusText = "Stopped."
@@ -498,7 +506,11 @@ final class AppModel {
         agentTask?.cancel()
     }
 
-    private func runAgent(prompt: String, history: [ChatMessage], assistantIndex: Int) async {
+    private func runAgent(prompt: String, history: [ChatMessage], assistantIndex: Int, mode: AgentLoop.Mode) async {
+        if mode == .plan {
+            await runPlan(prompt: prompt, history: history, assistantIndex: assistantIndex)
+            return
+        }
         if !templateInstalled {
             do {
                 try await TemplateInstaller().install(into: workspace)
@@ -531,6 +543,8 @@ final class AppModel {
             switch event {
             case .assistantText(let text):
                 appendAssistant(assistantIndex, text)
+            case .reasoning(let text):
+                appendReasoning(assistantIndex, text)
             case .state(let state):
                 phase = state
                 statusText = Self.statusText(for: state)
@@ -544,6 +558,56 @@ final class AppModel {
         }
         await refreshFiles()
         persistCurrentChat()
+    }
+
+    /// Plan-mode turn: stream a plan + reasoning, write nothing. The model's
+    /// `<forgeQuestion>` blocks are parsed out of the text on completion and the
+    /// message is marked `isPlan` so the UI can offer "Build this plan".
+    private func runPlan(prompt: String, history: [ChatMessage], assistantIndex: Int) async {
+        let config = selectedModel
+        let systemPrompt = await composedSystemPrompt(mode: .plan)
+        let touched = Self.recentTouched(from: messages)
+        let deps = AgentLoop.Dependencies(
+            provider: ModelRouter.provider(for: config),
+            options: ModelRouter.options(for: config),
+            process: processLayer,
+            systemPrompt: systemPrompt,
+            projectContext: { [workspace] in await AppModel.buildContext(workspace, touched: touched) },
+            collectErrors: { ErrorReport() })
+
+        for await event in AgentLoop(deps).run(userPrompt: prompt, history: history, mode: .plan) {
+            switch event {
+            case .assistantText(let text): appendAssistant(assistantIndex, text)
+            case .reasoning(let text): appendReasoning(assistantIndex, text)
+            case .state(let state):
+                phase = state
+                statusText = Self.statusText(for: state)
+            default: break
+            }
+        }
+        if messages.indices.contains(assistantIndex) {
+            let (cleaned, questions) = PlanQuestionParser.extract(from: messages[assistantIndex].text)
+            messages[assistantIndex].text = cleaned
+            messages[assistantIndex].questions = questions
+            messages[assistantIndex].isPlan = true
+        }
+        persistCurrentChat()
+    }
+
+    /// Approve a plan: switch to Build and ask the agent to implement it.
+    func buildFromPlan() {
+        guard !isBusy else { return }
+        chatMode = .build
+        draft = "Implement the plan above."
+        submit()
+    }
+
+    /// Answer a clarifying question → continue planning with the choice.
+    func answer(_ option: String, to question: PlanQuestion) {
+        guard !isBusy else { return }
+        chatMode = .plan
+        draft = "For “\(question.question)” — \(option)."
+        submit()
     }
 
     func handleRuntimeIssue(_ issue: RuntimeIssue) {
@@ -569,6 +633,11 @@ final class AppModel {
     private func appendAssistant(_ index: Int, _ text: String) {
         guard messages.indices.contains(index) else { return }
         messages[index].text += text
+    }
+
+    private func appendReasoning(_ index: Int, _ text: String) {
+        guard messages.indices.contains(index) else { return }
+        messages[index].reasoning += text
     }
 
     private func addFile(_ path: String, to index: Int) {
@@ -630,6 +699,8 @@ final class AppModel {
         case .repairing(let attempt): "Fixing errors (attempt \(attempt))…"
         case .clean: "Done."
         case .failed(let reason): "Stopped: \(reason)"
+        case .planning: "Planning…"
+        case .planReady: "Plan ready."
         }
     }
 }

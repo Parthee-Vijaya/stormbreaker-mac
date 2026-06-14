@@ -34,10 +34,9 @@ struct ChatView: View {
                 }
                 Composer(
                     text: $model.draft,
-                    placeholder: model.selectedElement != nil
-                        ? "Change the selected \(model.selectedElement!.tag)…"
-                        : "Describe a change…",
+                    placeholder: composerPlaceholder(model),
                     isBusy: model.isBusy,
+                    mode: model.selectedElement == nil ? $model.chatMode : nil,
                     onSubmit: {
                         if model.selectedElement != nil { model.applyVisualEdit(model.draft) }
                         else { model.submit() }
@@ -66,12 +65,21 @@ struct ChatView: View {
         .background(Theme.sidebar)
     }
 
+    private func composerPlaceholder(_ model: AppModel) -> String {
+        if let element = model.selectedElement { return "Change the selected \(element.tag)…" }
+        return model.chatMode == .plan ? "Describe what to plan…" : "Describe a change…"
+    }
+
     private var messageList: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     ForEach(model.messages) { MessageView(message: $0) }
                     if model.isBusy { StatusRow(text: model.statusText) }
+                    if let last = model.messages.last, last.role == .assistant,
+                       last.isPlan, !last.text.isEmpty, !model.isBusy {
+                        BuildPlanButton { model.buildFromPlan() }
+                    }
                     Color.clear.frame(height: 1).id("bottom")
                 }
                 .padding(16)
@@ -87,6 +95,7 @@ struct ChatView: View {
 }
 
 private struct MessageView: View {
+    @Environment(AppModel.self) private var model
     let message: AppModel.UIMessage
 
     var body: some View {
@@ -102,14 +111,22 @@ private struct MessageView: View {
             }
         } else {
             VStack(alignment: .leading, spacing: 9) {
-                if message.text.isEmpty {
-                    Text("Working…").font(.system(size: 13.5)).foregroundStyle(Theme.inkFaint)
-                } else {
+                if !message.reasoning.isEmpty {
+                    ThinkingView(reasoning: message.reasoning, answerStarted: !message.text.isEmpty)
+                }
+                if !message.text.isEmpty {
                     Text(Self.render(message.text))
                         .font(.system(size: 13.5))
                         .foregroundStyle(Theme.ink)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                } else if message.reasoning.isEmpty {
+                    Text("Working…").font(.system(size: 13.5)).foregroundStyle(Theme.inkFaint)
+                }
+                if !message.questions.isEmpty {
+                    QuestionChips(questions: message.questions, disabled: model.isBusy) { question, option in
+                        model.answer(option, to: question)
+                    }
                 }
                 if !message.files.isEmpty {
                     FlowLayout(spacing: 6) {
@@ -132,6 +149,24 @@ private struct MessageView: View {
     }
 }
 
+/// The approve-and-build affordance shown under a finished plan.
+private struct BuildPlanButton: View {
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "hammer.fill").font(.system(size: 12))
+                Text("Build this plan").font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(Theme.onAccent)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(Theme.accent, in: RoundedRectangle(cornerRadius: Theme.radiusM))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 private struct StatusRow: View {
     let text: String
     var body: some View {
@@ -141,5 +176,53 @@ private struct StatusRow: View {
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(Theme.fill, in: Capsule())
+    }
+}
+
+/// Collapsible "thinking" disclosure for reasoning models. Auto-expanded while
+/// the model is still thinking (no answer yet), auto-collapses once the answer
+/// starts — until the user clicks, after which their choice sticks.
+private struct ThinkingView: View {
+    let reasoning: String
+    let answerStarted: Bool
+    @State private var override: Bool?
+
+    private var expanded: Bool { override ?? !answerStarted }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button { override = !expanded } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "brain").font(.system(size: 10))
+                    Text(answerStarted ? "Thought process" : "Thinking…")
+                        .font(.system(size: 12, weight: .medium))
+                    Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 8, weight: .semibold))
+                }
+                .foregroundStyle(Theme.inkSoft)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if expanded {
+                ScrollView {
+                    Text(reasoning)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(Theme.inkFaint)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 220)
+                .padding(10)
+                .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.radiusM))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.radiusM)
+                        .strokeBorder(Theme.border, lineWidth: 1)
+                        .overlay(Rectangle().fill(Theme.accent.opacity(0.35)).frame(width: 2), alignment: .leading)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

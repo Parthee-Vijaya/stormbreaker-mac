@@ -5,5 +5,10 @@ import Foundation
 /// Errors are surfaced by throwing from the `AsyncThrowingStream`, not as a case.
 public enum ChatStreamEvent: Sendable {
     case token(String)
+    /// Reasoning/"thinking" content from a reasoning model, surfaced separately
+    /// from the answer. Emitted from structured provider fields (Ollama
+    /// `message.thinking`, OpenAI-compatible `delta.reasoning_content`); inline
+    /// `<think>…</think>` is split out later by `ReasoningSplitter`.
+    case reasoning(String)
     case done(reason: String?, promptTokens: Int?, completionTokens: Int?)
 }

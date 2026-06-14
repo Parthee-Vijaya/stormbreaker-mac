@@ -116,6 +116,45 @@ final class AgentLoopTests: XCTestCase {
         XCTAssertFalse(hasFailure(s))
     }
 
+    func testPlanModeStreamsPlanAndWritesNothing() async throws {
+        let plan = "Here is the plan:\n1. Create src/App.tsx\n2. Add a centered button"
+        let process = NoopProcess()
+        let loop = AgentLoop(.init(
+            provider: ScriptedModel([plan]),
+            options: GenerationOptions(),
+            process: process,
+            collectErrors: { ErrorReport() },
+            settleDelay: .milliseconds(1)))
+
+        let events = await collect(loop.run(userPrompt: "build x", history: [], mode: .plan))
+        let s = states(events)
+        XCTAssertTrue(s.contains(.planning))
+        XCTAssertTrue(s.contains(.planReady))
+        XCTAssertFalse(hasFailure(s))
+
+        let written = await process.written
+        XCTAssertTrue(written.isEmpty, "plan mode must not write files")
+        let prose = events.compactMap { if case .assistantText(let t) = $0 { return t }; return nil }.joined()
+        XCTAssertTrue(prose.contains("Here is the plan"))
+    }
+
+    func testReasoningSplitFromInlineThink() async throws {
+        let response = "<think>weighing layout options</think>The answer is a grid."
+        let loop = AgentLoop(.init(
+            provider: ScriptedModel([response]),
+            options: GenerationOptions(),
+            process: NoopProcess(),
+            collectErrors: { ErrorReport() },
+            settleDelay: .milliseconds(1)))
+
+        let events = await collect(loop.run(userPrompt: "x", history: [], mode: .plan))
+        let reasoning = events.compactMap { if case .reasoning(let r) = $0 { return r }; return nil }.joined()
+        let prose = events.compactMap { if case .assistantText(let t) = $0 { return t }; return nil }.joined()
+        XCTAssertTrue(reasoning.contains("weighing layout options"))
+        XCTAssertTrue(prose.contains("The answer is a grid."))
+        XCTAssertFalse(prose.contains("<think>"))
+    }
+
     func testNoProgressStops() async throws {
         let sameError = ErrorReport(items: [.init(source: .build, message: "src/App.tsx:3 boom")])
         let errors = ScriptedErrors([sameError, sameError])  // identical signature twice

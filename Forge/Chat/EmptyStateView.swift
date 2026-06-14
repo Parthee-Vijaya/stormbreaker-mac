@@ -31,9 +31,12 @@ struct EmptyStateView: View {
 
                 Composer(
                     text: $model.draft,
-                    placeholder: "Build a todo app with add, complete and delete…",
+                    placeholder: model.chatMode == .plan
+                        ? "Describe what to plan…"
+                        : "Build a todo app with add, complete and delete…",
                     isBusy: model.isBusy,
                     autofocus: true,
+                    mode: $model.chatMode,
                     onSubmit: { model.submit() }
                 )
                 .frame(maxWidth: 560)

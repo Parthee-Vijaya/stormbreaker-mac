@@ -48,6 +48,9 @@ public struct OpenAICompatProvider: ChatModel {
                         }
                         guard !payload.isEmpty, let data = payload.data(using: .utf8),
                               let chunk = try? decoder.decode(Chunk.self, from: data) else { continue }
+                        if let reasoning = chunk.choices.first?.delta.reasoningText, !reasoning.isEmpty {
+                            continuation.yield(.reasoning(reasoning))
+                        }
                         if let token = chunk.choices.first?.delta.content, !token.isEmpty {
                             continuation.yield(.token(token))
                         }
@@ -76,7 +79,14 @@ public struct OpenAICompatProvider: ChatModel {
 
     private struct Chunk: Decodable {
         struct Choice: Decodable {
-            struct Delta: Decodable { let content: String? }
+            struct Delta: Decodable {
+                let content: String?
+                // Reasoning models expose thinking under different keys: DeepSeek /
+                // NVIDIA NIM use `reasoning_content`, some gateways use `reasoning`.
+                let reasoning_content: String?
+                let reasoning: String?
+                var reasoningText: String? { reasoning_content ?? reasoning }
+            }
             let delta: Delta
             let finish_reason: String?
         }

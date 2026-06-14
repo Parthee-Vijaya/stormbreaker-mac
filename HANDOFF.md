@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `c69c053` 2026-06-14 — Harden the agent core: cancel, error classification, context, line-replace, few-shot
 - `3749a7e` 2026-06-14 — Add first-run onboarding + Settings window
 - `fc8c27c` 2026-06-14 — Add visual editing: click an element in the preview, describe a change
 - `86a10c2` 2026-06-14 — Add deploy: GitHub + Vercel from the preview toolbar

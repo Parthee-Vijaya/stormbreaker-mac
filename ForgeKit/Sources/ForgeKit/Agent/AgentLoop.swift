@@ -42,15 +42,74 @@ public actor AgentLoop {
         }
     }
 
+    /// Build = the full write/install/start/self-correct loop. Plan = a single
+    /// streaming turn that proposes a plan and never touches the project.
+    public enum Mode: Sendable, Hashable, CaseIterable { case build, plan }
+
     private let deps: Dependencies
 
     public init(_ deps: Dependencies) { self.deps = deps }
 
-    public nonisolated func run(userPrompt: String, history: [ChatMessage]) -> AsyncStream<AgentEvent> {
+    public nonisolated func run(
+        userPrompt: String,
+        history: [ChatMessage],
+        mode: Mode = .build
+    ) -> AsyncStream<AgentEvent> {
         let (stream, continuation) = AsyncStream.makeStream(of: AgentEvent.self)
-        let task = Task { await runLoop(userPrompt: userPrompt, history: history, continuation) }
+        let task = Task {
+            switch mode {
+            case .build: await runLoop(userPrompt: userPrompt, history: history, continuation)
+            case .plan: await runPlan(userPrompt: userPrompt, history: history, continuation)
+            }
+        }
         continuation.onTermination = { _ in task.cancel() }
         return stream
+    }
+
+    /// Plan mode: one streaming turn (reasoning + plan prose), no actions, no dev
+    /// server, no error loop. The caller's `deps.systemPrompt` is the plan prompt.
+    private func runPlan(
+        userPrompt: String,
+        history: [ChatMessage],
+        _ continuation: AsyncStream<AgentEvent>.Continuation
+    ) async {
+        do {
+            let context = await deps.projectContext()
+            let messages = MessageBuilder().build(
+                systemPrompt: deps.systemPrompt,
+                projectContext: context,
+                history: history,
+                userPrompt: userPrompt)
+            continuation.yield(.state(.planning))
+            let splitter = ReasoningSplitter()
+            for try await event in deps.provider.stream(messages: messages, options: deps.options) {
+                try Task.checkCancellation()
+                let pieces: [ReasoningSplitter.Piece]
+                switch event {
+                case .reasoning(let r): continuation.yield(.reasoning(r)); continue
+                case .token(let token): pieces = splitter.consume(token)
+                case .done: continue
+                }
+                for piece in pieces {
+                    switch piece {
+                    case .reasoning(let r): continuation.yield(.reasoning(r))
+                    case .text(let text): continuation.yield(.assistantText(text))
+                    }
+                }
+            }
+            for piece in splitter.finish() {
+                switch piece {
+                case .reasoning(let r): continuation.yield(.reasoning(r))
+                case .text(let text): continuation.yield(.assistantText(text))
+                }
+            }
+            continuation.yield(.state(.planReady))
+        } catch is CancellationError {
+            // user stopped planning
+        } catch {
+            continuation.yield(.state(.failed(String(describing: error))))
+        }
+        continuation.finish()
     }
 
     private func runLoop(
@@ -115,14 +174,40 @@ public actor AgentLoop {
     ) async throws -> String {
         let parser = StreamingArtifactParser()
         let executor = ActionExecutor(process: deps.process)
+        let splitter = ReasoningSplitter()
         var raw = ""
 
+        // Route split pieces: reasoning to the UI, visible text through the
+        // artifact parser. `raw` holds only the visible text (no <think>), so the
+        // repair history stays clean. Inlined (not a nested async fn) to keep the
+        // non-Sendable parser inside this actor method's isolation region.
         for try await event in deps.provider.stream(messages: messages, options: deps.options) {
             try Task.checkCancellation()
-            guard case .token(let token) = event else { continue }
-            raw += token
-            for parserEvent in parser.consume(token) {
-                try await apply(parserEvent, executor: executor, continuation)
+            let pieces: [ReasoningSplitter.Piece]
+            switch event {
+            case .reasoning(let r): continuation.yield(.reasoning(r)); continue
+            case .token(let token): pieces = splitter.consume(token)
+            case .done: continue
+            }
+            for piece in pieces {
+                switch piece {
+                case .reasoning(let r): continuation.yield(.reasoning(r))
+                case .text(let text):
+                    raw += text
+                    for parserEvent in parser.consume(text) {
+                        try await apply(parserEvent, executor: executor, continuation)
+                    }
+                }
+            }
+        }
+        for piece in splitter.finish() {
+            switch piece {
+            case .reasoning(let r): continuation.yield(.reasoning(r))
+            case .text(let text):
+                raw += text
+                for parserEvent in parser.consume(text) {
+                    try await apply(parserEvent, executor: executor, continuation)
+                }
             }
         }
         for parserEvent in parser.finish() {

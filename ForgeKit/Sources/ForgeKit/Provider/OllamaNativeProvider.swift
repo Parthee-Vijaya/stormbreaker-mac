@@ -38,6 +38,9 @@ public struct OllamaNativeProvider: ChatModel {
                         if Task.isCancelled { break }
                         guard !line.isEmpty, let data = line.data(using: .utf8),
                               let chunk = try? decoder.decode(Chunk.self, from: data) else { continue }
+                        if let thinking = chunk.message?.thinking, !thinking.isEmpty {
+                            continuation.yield(.reasoning(thinking))
+                        }
                         if let content = chunk.message?.content, !content.isEmpty {
                             continuation.yield(.token(content))
                         }
@@ -68,7 +71,7 @@ public struct OllamaNativeProvider: ChatModel {
     }
 
     private struct Chunk: Decodable {
-        struct Message: Decodable { let content: String? }
+        struct Message: Decodable { let content: String?; let thinking: String? }
         let message: Message?
         let done: Bool?
         let done_reason: String?

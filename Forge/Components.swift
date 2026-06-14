@@ -9,6 +9,7 @@ struct Composer: View {
     var placeholder: String
     var isBusy: Bool
     var autofocus: Bool = false
+    var mode: Binding<AgentLoop.Mode>? = nil
     var onSubmit: () -> Void
     var onStop: (() -> Void)? = nil
 
@@ -19,6 +20,21 @@ struct Composer: View {
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let mode { ModeToggle(mode: mode) }
+            inputRow
+        }
+        .padding(10)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusL))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.radiusL)
+                .strokeBorder(focused ? Theme.borderStrong : Theme.border, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 10, y: 3)
+        .onAppear { if autofocus { focused = true } }
+    }
+
+    private var inputRow: some View {
         HStack(alignment: .bottom, spacing: 8) {
             TextField(placeholder, text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
@@ -60,14 +76,72 @@ struct Composer: View {
                 .disabled(!canSend)
             }
         }
-        .padding(10)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusL))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.radiusL)
-                .strokeBorder(focused ? Theme.borderStrong : Theme.border, lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.05), radius: 10, y: 3)
-        .onAppear { if autofocus { focused = true } }
+    }
+}
+
+/// Plan / Build segmented toggle for the composer. Plan mode makes the agent
+/// propose a plan + ask questions instead of writing code.
+struct ModeToggle: View {
+    @Binding var mode: AgentLoop.Mode
+
+    var body: some View {
+        HStack(spacing: 2) {
+            segment("Build", .build, icon: "hammer")
+            segment("Plan", .plan, icon: "list.bullet.clipboard")
+        }
+        .padding(2)
+        .background(Theme.fill, in: Capsule())
+    }
+
+    private func segment(_ title: String, _ value: AgentLoop.Mode, icon: String) -> some View {
+        let selected = mode == value
+        return Button { mode = value } label: {
+            HStack(spacing: 4) {
+                Image(systemName: icon).font(.system(size: 10, weight: .semibold))
+                Text(title).font(.system(size: 11, weight: .medium))
+            }
+            .foregroundStyle(selected ? Theme.onAccent : Theme.inkSoft)
+            .padding(.horizontal, 10).padding(.vertical, 4)
+            .background(selected ? Theme.accent : .clear, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Clarifying questions from plan mode, rendered as tappable option chips.
+struct QuestionChips: View {
+    let questions: [PlanQuestion]
+    var disabled: Bool
+    var onAnswer: (PlanQuestion, String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(questions) { question in
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "questionmark.circle").font(.system(size: 11))
+                        Text(question.question).font(.system(size: 12.5, weight: .medium))
+                    }
+                    .foregroundStyle(Theme.ink)
+                    FlowLayout(spacing: 6) {
+                        ForEach(question.options, id: \.self) { option in
+                            Button { onAnswer(question, option) } label: {
+                                Text(option)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Theme.accent)
+                                    .padding(.horizontal, 11).padding(.vertical, 6)
+                                    .background(Theme.fill, in: Capsule())
+                                    .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.35), lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(disabled)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
