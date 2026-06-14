@@ -98,6 +98,11 @@ private struct MessageView: View {
     @Environment(AppModel.self) private var model
     let message: AppModel.UIMessage
 
+    @State private var showRestoreConfirm = false
+    @State private var diff: DiffPayload?
+
+    private struct DiffPayload: Identifiable { let id = UUID(); let text: String }
+
     var body: some View {
         if message.role == .user {
             HStack {
@@ -133,7 +138,29 @@ private struct MessageView: View {
                         ForEach(message.files, id: \.self) { FileChip(path: $0) }
                     }
                 }
+                if message.checkpoint != nil, !message.files.isEmpty {
+                    HStack(spacing: 14) {
+                        Button { Task { diff = DiffPayload(text: await model.diffForTurn(message)) } } label: {
+                            Label("View changes", systemImage: "plusminus.circle")
+                        }
+                        Button { showRestoreConfirm = true } label: {
+                            Label("Restore", systemImage: "arrow.uturn.backward")
+                        }
+                        .disabled(model.isBusy)
+                    }
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.inkFaint)
+                    .buttonStyle(.plain)
+                }
             }
+            .confirmationDialog("Roll back to before this change?",
+                                isPresented: $showRestoreConfirm, titleVisibility: .visible) {
+                Button("Restore", role: .destructive) { model.restoreCheckpoint(message) }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Changes made after this point are discarded.")
+            }
+            .sheet(item: $diff) { DiffView(diff: $0.text) }
         }
     }
 

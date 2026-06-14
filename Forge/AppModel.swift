@@ -15,6 +15,7 @@ final class AppModel {
         var reasoning: String = ""   // reasoning-model "thinking", shown collapsibly
         var isPlan: Bool = false     // a plan-mode response → show "Build this plan"
         var questions: [PlanQuestion] = []   // clarifying questions → tappable chips
+        var checkpoint: String?      // shadow-git sha snapshotted before this turn ran
     }
 
     enum PreviewWidth: CaseIterable {
@@ -100,6 +101,7 @@ final class AppModel {
     @ObservationIgnored private(set) var devServer: DevServerManager
     @ObservationIgnored private(set) var processLayer: ForgeProcessLayer
     @ObservationIgnored private(set) var errorCollector: ErrorCollector
+    @ObservationIgnored private(set) var checkpoints: CheckpointManager
     @ObservationIgnored private var templateInstalled = false
     @ObservationIgnored private var agentTask: Task<Void, Never>?
     @ObservationIgnored private var logTask: Task<Void, Never>?
@@ -128,6 +130,7 @@ final class AppModel {
         self.devServer = devServer
         self.processLayer = ForgeProcessLayer(workspace: workspace, devServer: devServer)
         self.errorCollector = ErrorCollector(devServer: devServer)
+        self.checkpoints = CheckpointManager(root: ProjectStore.dir(for: current))
 
         self.availableModels = [.localDefault]
         self.selectedModelID = prefs.defaultModelID.isEmpty ? ModelConfig.localDefault.id : prefs.defaultModelID
@@ -292,6 +295,7 @@ final class AppModel {
         self.devServer = DevServerManager(workspace: workspace)
         self.processLayer = ForgeProcessLayer(workspace: workspace, devServer: devServer)
         self.errorCollector = ErrorCollector(devServer: devServer)
+        self.checkpoints = CheckpointManager(root: ProjectStore.dir(for: project))
         startLogStream()
     }
 
@@ -511,6 +515,9 @@ final class AppModel {
             await runPlan(prompt: prompt, history: history, assistantIndex: assistantIndex)
             return
         }
+        // Checkpoint the pre-turn state so this turn can be rolled back.
+        let preSha = await checkpoints.snapshot(label: prompt)
+        if messages.indices.contains(assistantIndex) { messages[assistantIndex].checkpoint = preSha }
         if !templateInstalled {
             do {
                 try await TemplateInstaller().install(into: workspace)
@@ -608,6 +615,36 @@ final class AppModel {
         chatMode = .plan
         draft = "For “\(question.question)” — \(option)."
         submit()
+    }
+
+    // MARK: - Checkpoints (B1/B2)
+
+    /// Roll the project back to the state before `message`'s turn ran. Later
+    /// turns' changes are discarded; the preview reloads.
+    func restoreCheckpoint(_ message: UIMessage) {
+        guard !isBusy, let sha = message.checkpoint else { return }
+        let cp = checkpoints
+        Task {
+            await cp.restore(to: sha)
+            await refreshFiles()
+            reloadPreview()
+            statusText = "Restored to checkpoint."
+        }
+    }
+
+    /// Unified diff of what `message`'s turn changed: from its pre-turn snapshot
+    /// to the next turn's snapshot (or the working tree if it's the latest turn).
+    func diffForTurn(_ message: UIMessage) async -> String {
+        guard let sha = message.checkpoint else { return "" }
+        return await checkpoints.diff(from: sha, to: nextCheckpointSha(after: message))
+    }
+
+    private func nextCheckpointSha(after message: UIMessage) -> String? {
+        guard let index = messages.firstIndex(where: { $0.id == message.id }) else { return nil }
+        for later in messages[messages.index(after: index)...] where later.checkpoint != nil {
+            return later.checkpoint
+        }
+        return nil   // latest turn → diff against the working tree
     }
 
     func handleRuntimeIssue(_ issue: RuntimeIssue) {
