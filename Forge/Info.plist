@@ -24,6 +24,11 @@
     <true/>
     <key>NSAppTransportSecurity</key>
     <dict>
+        <!-- Faithful preview of arbitrary generated web apps: they may pull
+             images/fonts/APIs from any host (this is a local dev tool, not a
+             shipping consumer app). -->
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
         <key>NSAllowsLocalNetworking</key>
         <true/>
         <key>NSExceptionDomains</key>

@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `02cb3a9` 2026-06-14 — Add auto-fix / "Fix it" for runtime errors (B12) + harden Preferences decoding
 - `6c100db` 2026-06-14 — Add project access: open in editor, reveal in Finder, export zip (B13 + B24)
 - `8e1f001` 2026-06-14 — Add DMG packaging script + roadmap B24 (open in VS Code/Xcode)
 - `5ca8635` 2026-06-14 — Add checkpoints + per-turn diff (safety net)

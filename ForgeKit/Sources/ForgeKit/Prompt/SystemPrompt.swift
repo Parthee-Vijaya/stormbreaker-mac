@@ -49,6 +49,19 @@ public enum SystemPrompt {
     utility classes. Keep a clean black-and-white aesthetic unless the user asks otherwise.
     </quality>
 
+    <media_and_content>
+    For landing pages, marketing sites, blogs, and any content-rich page: compose MULTIPLE
+    well-designed sections (e.g. header/nav, hero, features, social proof/testimonial, pricing, CTA,
+    footer) — never a single bare block. Write specific, real copy.
+    - Images: use `https://picsum.photos/seed/<descriptive-seed>/<width>/<height>` for photos
+      (deterministic, no API key) — vary the seed per image. Real `https://images.unsplash.com/...`
+      URLs are fine if you know them. Always give every image explicit dimensions or an aspect class
+      plus `object-cover` so layout never collapses. Use descriptive `alt` text.
+    - Icons: add the `lucide-react` package (add-dependency) and use its components, or inline SVG.
+      Never leave an empty icon placeholder.
+    - Make it responsive (mobile-first Tailwind) and visually polished.
+    </media_and_content>
+
     <self_correction>
     After your changes, Forge feeds you the actual build errors (Vite/tsc) and runtime errors (browser \
     console + network). When errors appear, diagnose from the REAL error text, fix the root cause with \
