@@ -18,6 +18,7 @@ enum Theme {
     static let fill = Color(white: 0.965)
     static let fillHover = Color(white: 0.93)
     static let positive = Color(red: 0.16, green: 0.72, blue: 0.45)
+    static let warning = Color(red: 0.85, green: 0.52, blue: 0.10)   // amber — runtime-error affordance
 
     static let radiusS: CGFloat = 8
     static let radiusM: CGFloat = 12

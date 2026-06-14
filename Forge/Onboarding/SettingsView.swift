@@ -113,6 +113,12 @@ struct SettingsView: View {
                     .frame(minHeight: 120)
             }
 
+            Section("Adfærd") {
+                Toggle("Auto-fix runtime-fejl", isOn: $model.preferences.autoFix)
+                Text("Når slået til retter Forge automatisk en fejl i den kørende app uden du beder om det. Kan altid rulles tilbage via checkpoints. ‘Fix it’-knappen er tilgængelig uanset.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+
             Section {
                 Button("Kør onboarding igen") { model.preferences.onboarded = false }
                     .foregroundStyle(Theme.accent)

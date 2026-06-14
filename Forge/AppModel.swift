@@ -104,6 +104,8 @@ final class AppModel {
     @ObservationIgnored private(set) var checkpoints: CheckpointManager
     @ObservationIgnored private var templateInstalled = false
     @ObservationIgnored private var agentTask: Task<Void, Never>?
+    @ObservationIgnored private var autoFixTask: Task<Void, Never>?
+    @ObservationIgnored private var lastAutoFixSignature: String?
     @ObservationIgnored private var logTask: Task<Void, Never>?
     @ObservationIgnored private var autosaveTask: Task<Void, Never>?
     @ObservationIgnored private var lastLoadedText = ""
@@ -542,6 +544,9 @@ final class AppModel {
         if messages.isEmpty { renameCurrent(to: Self.projectName(from: prompt)) }
         draft = ""
         hasStarted = true
+        jsErrors = []                  // a new turn supersedes prior runtime errors
+        lastAutoFixSignature = nil
+        autoFixTask?.cancel()
         let history = chatHistory()
         messages.append(UIMessage(role: .user, text: prompt))
         messages.append(UIMessage(role: .assistant, text: ""))
@@ -714,6 +719,34 @@ final class AppModel {
         if jsErrors.count > 200 { jsErrors.removeFirst(jsErrors.count - 200) }
         let collector = errorCollector
         Task { await collector.submit([issue]) }
+        scheduleAutoFixIfEnabled()
+    }
+
+    /// Whether there are unaddressed runtime errors to offer a fix for.
+    var hasFixableErrors: Bool { !jsErrors.isEmpty && hasStarted && !isBusy }
+
+    /// Run a repair turn for the current runtime errors (B12). Manual entry point
+    /// for the "Fix it" affordance; also used by auto-fix.
+    func fixErrors() {
+        guard hasFixableErrors else { return }
+        let summary = jsErrors.suffix(3).map(\.displayMessage).joined(separator: "\n")
+        draft = "The running app has a runtime error. Find and fix the root cause:\n\(summary)"
+        submit()
+    }
+
+    /// Auto-fix: after an error burst settles, fire a repair turn — but only once
+    /// per distinct error set, so a fix that doesn't resolve it can't loop.
+    private func scheduleAutoFixIfEnabled() {
+        guard preferences.autoFix, !isBusy, hasStarted else { return }
+        autoFixTask?.cancel()
+        autoFixTask = Task {
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled, preferences.autoFix, !isBusy, hasStarted, !jsErrors.isEmpty else { return }
+            let signature = jsErrors.suffix(3).map(\.displayMessage).joined(separator: "|")
+            guard signature != lastAutoFixSignature else { return }
+            lastAutoFixSignature = signature
+            fixErrors()
+        }
     }
 
     func reloadPreview() { reloadToken += 1 }

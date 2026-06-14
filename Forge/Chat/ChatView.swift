@@ -16,6 +16,25 @@ struct ChatView: View {
             }
             Divider().overlay(Theme.border)
             VStack(spacing: 8) {
+                if model.hasFixableErrors {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 11)).foregroundStyle(Theme.warning)
+                        Text("Runtime error detected")
+                            .font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.ink)
+                        Spacer(minLength: 0)
+                        Button { model.fixErrors() } label: {
+                            Text("Fix it")
+                                .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.onAccent)
+                                .padding(.horizontal, 12).padding(.vertical, 5)
+                                .background(Theme.accent, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 7)
+                    .background(Theme.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: Theme.radiusM))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.radiusM).strokeBorder(Theme.warning.opacity(0.4), lineWidth: 1))
+                }
                 if let element = model.selectedElement {
                     HStack(spacing: 6) {
                         Image(systemName: "cursorarrow.rays").font(.system(size: 11)).foregroundStyle(Theme.accent)
