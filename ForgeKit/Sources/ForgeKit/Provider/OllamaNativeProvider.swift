@@ -17,6 +17,7 @@ public struct OllamaNativeProvider: ChatModel {
         -> AsyncThrowingStream<ChatStreamEvent, Error>
     {
         AsyncThrowingStream { continuation in
+            let watchdog = StreamWatchdog()
             let task = Task {
                 do {
                     var request = URLRequest(url: baseURL.appendingPathComponent("api/chat"))
@@ -32,10 +33,14 @@ public struct OllamaNativeProvider: ChatModel {
 
                     let (bytes, response) = try await URLSession.shared.bytes(for: request)
                     try await ensureOK(response, bytes: bytes)
+                    watchdog.attach(bytes.task)
+                    let monitor = Task { await watchdog.monitor() }
+                    defer { monitor.cancel() }
 
                     let decoder = JSONDecoder()
                     for try await line in SSELineReader(bytes) {
                         if Task.isCancelled { break }
+                        watchdog.touch()
                         guard !line.isEmpty, let data = line.data(using: .utf8),
                               let chunk = try? decoder.decode(Chunk.self, from: data) else { continue }
                         if let thinking = chunk.message?.thinking, !thinking.isEmpty {
@@ -52,12 +57,13 @@ public struct OllamaNativeProvider: ChatModel {
                             break
                         }
                     }
+                    watchdog.finish()
                     continuation.finish()
                 } catch {
-                    continuation.finish(throwing: error)
+                    continuation.finish(throwing: watchdog.didTimeout() ? StreamWatchdog.timeoutError : error)
                 }
             }
-            continuation.onTermination = { _ in task.cancel() }
+            continuation.onTermination = { _ in task.cancel(); watchdog.cancel() }
         }
     }
 
