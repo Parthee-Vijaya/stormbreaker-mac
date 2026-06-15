@@ -91,7 +91,7 @@ const count = ref(0)
       class="px-5 py-2.5 rounded-lg bg-black text-white font-medium hover:bg-neutral-800"
       @click="count++"
     >
-      Klikket {{ count }} gange
+      Clicked {{ count }} times
     </button>
   </main>
 </template>

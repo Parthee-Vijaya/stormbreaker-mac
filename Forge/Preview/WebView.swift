@@ -20,16 +20,22 @@ struct WebView: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
         let controller = WKUserContentController()
         controller.add(context.coordinator, name: "forge")
+        // Main frame only: a generated app that embeds a hostile <iframe> must not
+        // be able to inject the bridge or post messages to Swift.
         controller.addUserScript(WKUserScript(
-            source: Self.bridgeJS, injectionTime: .atDocumentStart, forMainFrameOnly: false))
+            source: Self.bridgeJS, injectionTime: .atDocumentStart, forMainFrameOnly: true))
 
         let configuration = WKWebViewConfiguration()
         configuration.userContentController = controller
+        #if DEBUG
         configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        #endif
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
+        #if DEBUG
         webView.isInspectable = true
+        #endif
         webView.setValue(false, forKey: "drawsBackground")
         context.coordinator.webView = webView
         return webView
@@ -76,7 +82,8 @@ struct WebView: NSViewRepresentable {
         func userContentController(
             _ controller: WKUserContentController, didReceive message: WKScriptMessage
         ) {
-            guard message.name == "forge", let body = message.body as? [String: Any] else { return }
+            guard message.name == "forge", message.frameInfo.isMainFrame,
+                  let body = message.body as? [String: Any] else { return }
             let kind = body["kind"] as? String ?? ""
             if kind == "select" {
                 onElementSelected(

@@ -8,6 +8,9 @@ public actor ErrorCollector {
     private let devServer: DevServerManager
     private let classifier = ErrorClassifier()
     private var runtimeIssues: [RuntimeIssue] = []
+    /// Keep only the most recent issues so a runaway render-loop can't grow the
+    /// buffer unboundedly and blow up the next prompt's token budget.
+    private let cap = 50
 
     public init(devServer: DevServerManager) {
         self.devServer = devServer
@@ -15,6 +18,7 @@ public actor ErrorCollector {
 
     public func submit(_ issues: [RuntimeIssue]) {
         runtimeIssues.append(contentsOf: issues)
+        if runtimeIssues.count > cap { runtimeIssues.removeFirst(runtimeIssues.count - cap) }
     }
 
     public func reset() {

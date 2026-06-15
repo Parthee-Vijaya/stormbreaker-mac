@@ -97,7 +97,7 @@ private let svelteAppSvelte = """
     class="px-5 py-2.5 rounded-lg bg-black text-white font-medium hover:bg-neutral-800"
     onclick={() => count++}
   >
-    Klikket {count} gange
+    Clicked {count} times
   </button>
 </main>
 """

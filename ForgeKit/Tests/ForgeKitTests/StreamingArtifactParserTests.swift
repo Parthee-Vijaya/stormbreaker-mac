@@ -146,4 +146,36 @@ final class StreamingArtifactParserTests: XCTestCase {
             XCTAssertEqual(contents, "export default function App() { return <div>hi</div> }")
         }
     }
+
+    func testFinishFlushesPartialFileOnCancel() {
+        // User cancels mid-stream: the file body opened + streamed, but the closing
+        // </forgeAction> never arrived. finish() must still emit a fileClose with
+        // the partial content rather than silently losing the file.
+        let input = """
+        <forgeArtifact id="x" title="X">
+        <forgeAction type="file" filePath="src/App.tsx">export default function App() {
+          return <div>partial
+        """
+        for chunk in [Int.max, 1, 7] {
+            let written = files(parse(input, chunkSize: chunk))
+            XCTAssertEqual(written.count, 1, "chunk \(chunk): partial file should be flushed")
+            XCTAssertEqual(written.first?.0, "src/App.tsx", "chunk \(chunk)")
+            XCTAssertEqual(written.first?.1,
+                           "export default function App() {\n  return <div>partial",
+                           "chunk \(chunk): partial content preserved")
+        }
+    }
+
+    func testFinishDropsPartialLineReplace() {
+        // A half-streamed line-replace must NOT be applied — a partial SEARCH/REPLACE
+        // would corrupt the target file. finish() drops it (no fileClose).
+        let input = """
+        <forgeArtifact id="x" title="X">
+        <forgeAction type="line-replace" filePath="src/App.tsx">
+        <<<<<<< SEARCH
+        const a = 1
+        """
+        let written = files(parse(input, chunkSize: 1))
+        XCTAssertTrue(written.isEmpty, "partial line-replace must not be applied")
+    }
 }

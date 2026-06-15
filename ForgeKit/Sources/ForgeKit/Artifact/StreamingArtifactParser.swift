@@ -49,7 +49,24 @@ public final class StreamingArtifactParser {
 
     /// Flush at end of stream: held tails are emitted as-is.
     public func finish() -> [ParserEvent] {
-        drain(atEnd: true)
+        var events = drain(atEnd: true)
+        // If the stream ended mid-file (e.g. the user cancelled before the closing
+        // </forgeAction> arrived), the partial body was streamed as chunks but never
+        // closed — so emit a final fileClose with what we have, instead of silently
+        // losing the file. A partial line-replace is dropped, not applied: a half a
+        // SEARCH/REPLACE block would corrupt the target file.
+        switch state {
+        case .inFileBody(let path):
+            events.append(.fileClose(path: path, contents: stripCodeFence(trimEdges(fileContents))))
+            fileContents = ""
+            state = .inArtifact
+        case .inLineReplaceBody:
+            fileContents = ""
+            state = .inArtifact
+        default:
+            break
+        }
+        return events
     }
 
     // MARK: - Core
