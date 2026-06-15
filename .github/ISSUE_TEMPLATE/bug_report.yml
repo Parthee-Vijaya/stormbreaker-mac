@@ -1,0 +1,57 @@
+name: 🐞 Fejlrapport
+description: Noget gik galt i Forge
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tak fordi du tester Forge! Jo mere konkret, jo hurtigere kan jeg fikse det.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Hvad skete der?
+      description: Beskriv fejlen — hvad gjorde du, og hvad gik galt?
+      placeholder: "Jeg klonede et repo / skrev en prompt / trykkede deploy … og så …"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Hvad forventede du i stedet?
+    validations:
+      required: false
+  - type: input
+    id: model
+    attributes:
+      label: Hvilken model brugte du?
+      placeholder: "fx Ollama qwen2.5-coder:7b, LM Studio, eller cloud (OpenAI/Gemini …)"
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Hvor i appen?
+      options:
+        - Onboarding / kom-i-gang
+        - Prompt → byg en app
+        - Klon fra Git
+        - Kode / preview
+        - Deploy
+        - Andet
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Forge-version + macOS
+      placeholder: "fx Forge 0.2.1 · macOS 26.0"
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / fejlbeskeder (valgfrit)
+      description: Indsæt evt. fejltekst fra terminalen/konsollen i Forge.
+      render: shell
+    validations:
+      required: false

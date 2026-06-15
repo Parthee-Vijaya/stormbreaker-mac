@@ -1,0 +1,17 @@
+name: 💡 Idé / ønske
+description: Foreslå en forbedring til Forge
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Hvad kunne gøre Forge bedre?
+      placeholder: "Det ville hjælpe mig hvis Forge kunne …"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Hvorfor? Hvad prøver du at opnå?
+    validations:
+      required: false

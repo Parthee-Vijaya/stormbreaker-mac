@@ -24,6 +24,10 @@ struct DeployPanel: View {
                 }
                 .pickerStyle(.segmented).labelsHidden()
                 .onChange(of: model.preferences.deployTarget) { model.savePreferences() }
+
+                Text("Eksperimentel — kræver \(model.preferences.deployTarget == "netlify" ? "netlify" : "vercel")-CLI installeret og logget ind (samt gh til GitHub-push).")
+                    .font(.system(size: 10.5)).foregroundStyle(Theme.inkFaint)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if let github = model.deployGithubURL {

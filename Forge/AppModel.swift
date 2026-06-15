@@ -2339,6 +2339,16 @@ final class AppModel {
 
     /// First line of a failure reason, capped — for an inline chat message.
     static func briefReason(_ reason: String) -> String {
+        let lower = reason.lowercased()
+        // Friendliest guidance for the #1 first-run pitfall: the model backend isn't running.
+        if lower.contains("could not connect") || lower.contains("connection refused")
+            || lower.contains("cannotconnecttohost") || lower.contains("connection was lost")
+            || lower.contains("connection appears to be offline") {
+            return "Kunne ikke nå modellen. Er Ollama eller LM Studio startet? Tjek den valgte model nederst til venstre, eller åbn Indstillinger (⌘,)."
+        }
+        if lower.contains("no such model") || lower.contains("model not found") || lower.contains("model_not_found") {
+            return "Modellen blev ikke fundet — er den hentet/indlæst? Vælg en anden model nederst til venstre."
+        }
         let firstLine = reason.split(whereSeparator: \.isNewline).first.map(String.init) ?? reason
         let trimmed = firstLine.trimmingCharacters(in: .whitespaces)
         return trimmed.count > 160 ? String(trimmed.prefix(160)) + "…" : trimmed

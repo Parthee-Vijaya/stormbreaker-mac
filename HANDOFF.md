@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `700406a` 2026-06-15 — feat: /klon slash command — clone a Git repo from the prompt
 - `7bb317c` 2026-06-15 — docs: rigere landing page-design (uden emojis)
 - `83f0678` 2026-06-15 — docs: README på dansk med nybegynder/gratis-vinkel
 - `8d6ebd1` 2026-06-15 — docs: minimalistisk redesign af landing page
@@ -93,5 +94,4 @@ ollama list | grep qwen2.5-coder
 - `fa7f732` 2026-06-15 — C11: project dashboard grid
 - `b285ddb` 2026-06-15 — B10: read-only "Spørg om koden" mode (chat with the codebase)
 - `6f385bc` 2026-06-15 — B8: built-in terminal (command field + output log)
-- `003bcbf` 2026-06-15 — C17: shared motion language + micro-interactions
 <!-- COMMITLOG:END -->

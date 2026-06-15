@@ -1,7 +1,10 @@
 import SwiftUI
+import AppKit
 
 @main
 struct ForgeApp: App {
+    private static let repoURL = URL(string: "https://github.com/Parthee-Vijaya/forge-mac")!
+    private static let newIssueURL = URL(string: "https://github.com/Parthee-Vijaya/forge-mac/issues/new/choose")!
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
@@ -33,6 +36,10 @@ struct ForgeApp: App {
                 Divider()
                 Button("Stop generering") { appDelegate.model.cancelGeneration() }
                     .keyboardShortcut(".", modifiers: .command)
+            }
+            CommandGroup(replacing: .help) {
+                Button("Rapportér en fejl…") { NSWorkspace.shared.open(Self.newIssueURL) }
+                Button("Forge på GitHub") { NSWorkspace.shared.open(Self.repoURL) }
             }
         }
 
