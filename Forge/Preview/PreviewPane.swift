@@ -75,6 +75,9 @@ private struct PreviewToolbar: View {
                 Button { model.openInBrowser() } label: { Image(systemName: "arrow.up.forward.square") }
                     .buttonStyle(IconButtonStyle()).disabled(model.previewURL == nil)
                     .help("Åbn i browser").accessibilityLabel("Åbn preview i browser")
+                Button { model.shareLiveLink() } label: { Image(systemName: "square.and.arrow.up") }
+                    .buttonStyle(IconButtonStyle()).disabled(model.previewURL == nil)
+                    .help("Del live-link (LAN/Tailscale)").accessibilityLabel("Del live-link")
                 Menu {
                     ForEach(StylePresets.all) { preset in
                         Button(preset.name) { model.applyStyle(preset) }

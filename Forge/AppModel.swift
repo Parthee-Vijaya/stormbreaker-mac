@@ -1409,6 +1409,47 @@ final class AppModel {
         if let url = previewURL { NSWorkspace.shared.open(url) }
     }
 
+    /// The best LAN/Tailscale IPv4 to share the preview on — prefers a Tailscale
+    /// CGNAT address (100.64–100.127.x.x), else a private LAN address.
+    static func shareableHost() -> String? {
+        var tailscale: String?
+        var lan: String?
+        var ptr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ptr) == 0, let first = ptr else { return nil }
+        defer { freeifaddrs(ptr) }
+        for ifa in sequence(first: first, next: { $0.pointee.ifa_next }) {
+            let flags = Int32(ifa.pointee.ifa_flags)
+            guard (flags & IFF_UP) == IFF_UP, (flags & IFF_LOOPBACK) == 0 else { continue }
+            guard let sa = ifa.pointee.ifa_addr, sa.pointee.sa_family == sa_family_t(AF_INET) else { continue }
+            var buf = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            guard getnameinfo(sa, socklen_t(sa.pointee.sa_len), &buf,
+                              socklen_t(buf.count), nil, 0, NI_NUMERICHOST) == 0 else { continue }
+            let ip = String(cString: buf)
+            let p = ip.split(separator: ".").compactMap { Int($0) }
+            guard p.count == 4 else { continue }
+            if p[0] == 100, (64...127).contains(p[1]) { tailscale = tailscale ?? ip }
+            else if p[0] == 192, p[1] == 168 { lan = lan ?? ip }
+            else if p[0] == 10 { lan = lan ?? ip }
+            else if p[0] == 172, (16...31).contains(p[1]) { lan = lan ?? ip }
+        }
+        return tailscale ?? lan
+    }
+
+    /// Copy a LAN/Tailscale URL for the running preview so it can be opened from
+    /// another device (e.g. an iPhone on the same Tailnet).
+    func shareLiveLink() {
+        guard let url = previewURL, let port = url.port else {
+            showToast("Ingen kørende preview at dele", icon: "wifi.slash", style: .warning); return
+        }
+        guard let host = Self.shareableHost() else {
+            showToast("Ingen LAN/Tailscale-adresse fundet", icon: "wifi.slash", style: .warning); return
+        }
+        let shareURL = "http://\(host):\(port)"
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(shareURL, forType: .string)
+        showToast("Link kopieret: \(shareURL)", icon: "link")
+    }
+
     /// Actions for the ⌘K command palette, filtered to what's available in the
     /// current state. Each `run` closure is executed after the palette dismisses.
     func paletteCommands() -> [PaletteCommand] {
@@ -1442,6 +1483,8 @@ final class AppModel {
                                     icon: "archivebox") { self.exportZip() })
             c.append(PaletteCommand(id: "deps", title: "Afhængigheder…",
                                     icon: "shippingbox") { self.showDependencies = true })
+            c.append(PaletteCommand(id: "share", title: "Del live-link",
+                                    icon: "square.and.arrow.up") { self.shareLiveLink() })
         }
         if canCopyPass {
             c.append(PaletteCommand(id: "copy", title: "Dansk copy-pass",

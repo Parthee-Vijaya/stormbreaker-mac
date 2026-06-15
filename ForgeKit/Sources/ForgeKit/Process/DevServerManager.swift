@@ -179,7 +179,10 @@ public actor DevServerManager {
         // 5173) and end up serving the wrong app. strictPort is false in the
         // template, so Vite picks the next free port if even this is taken — and
         // Forge parses the actual port from stdout.
-        let portArgs = ["--", "--port", "\(projectPort)"]
+        // `--host` binds LAN interfaces too, so the preview is reachable over
+        // LAN/Tailscale (the "Del live-link" feature). The preview still loads
+        // via 127.0.0.1; Forge parses the actual Local port from stdout.
+        let portArgs = ["--", "--port", "\(projectPort)", "--host"]
         var arguments = packageManager.devArgs + portArgs
 
         // Prefer the forge-run.sh wrapper for orphan safety; fall back to a

@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `4cb0bc7` 2026-06-15 — Deploy targets: Vercel or Netlify
 - `aa0bdac` 2026-06-15 — Syntax highlighting in the code editor
 - `a574286` 2026-06-15 — Dependency manager: add/remove npm packages from the UI
 - `1b4f8a0` 2026-06-15 — Roadmap: mark a11y (partial), theme-picker (C16) done
@@ -93,5 +94,4 @@ ollama list | grep qwen2.5-coder
 - `9f610e9` 2026-06-15 — Roadmap: mark Midnat theme, link→design, orphan sweep, template gallery done
 - `ae70170` 2026-06-15 — Template gallery on the launch screen (B6)
 - `3d17993` 2026-06-15 — Kill leaked dev servers across all projects on launch
-- `b047d9c` 2026-06-15 — Copy this design: capture a website screenshot from a link
 <!-- COMMITLOG:END -->
