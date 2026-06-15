@@ -40,6 +40,12 @@ enum ProjectStore {
         return url
     }
 
+    /// Preview thumbnail (snapshot of the running app) for the project switcher.
+    static func thumbnailURL(for project: Project) -> URL {
+        root.appendingPathComponent(project.folder, isDirectory: true)
+            .appendingPathComponent(".forge/thumb.png")
+    }
+
     private static func chatURL(for project: Project) -> URL {
         dir(for: project).appendingPathComponent(".forge/chat.json")
     }

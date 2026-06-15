@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `d87a65a` 2026-06-15 — Token usage counter per turn + project
 - `4ee03c9` 2026-06-15 — Tidier project names from the first prompt
 - `9654261` 2026-06-15 — Toast notifications for async successes
 - `5d5dc0c` 2026-06-15 — Friendliness: delete confirmation, keyboard shortcuts, copy-code
@@ -93,5 +94,4 @@ ollama list | grep qwen2.5-coder
 - `22041a0` 2026-06-14 — Fix "[object Event]" in runtime-error capture (B12 self-correction)
 - `dc6c725` 2026-06-14 — B4: image / screenshot → UI (multimodal)
 - `86ed628` 2026-06-14 — B25: multi-model roles + Danish copy-pass (agentic)
-- `5dfa718` 2026-06-14 — Recover from stalled model streams (watchdog + force-cancel)
 <!-- COMMITLOG:END -->

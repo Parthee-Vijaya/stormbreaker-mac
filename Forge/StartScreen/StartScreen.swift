@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import ForgeKit
 
 /// The launch screen (shown before a build starts): a left sidebar with the
@@ -63,8 +64,7 @@ struct StartScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 1) {
                     ForEach(recentProjects(model)) { project in
-                        SidebarRow(title: project.name.isEmpty ? "Untitled" : project.name,
-                                   icon: "folder") { model.switchTo(project) }
+                        RecentProjectRow(project: project) { model.switchTo(project) }
                     }
                 }
             }
@@ -212,6 +212,44 @@ private struct SidebarRow: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 8)
         .onHover { hovering = $0 }
+    }
+}
+
+/// A recent-project row showing a preview thumbnail (falls back to a folder icon
+/// before the project's first build is snapshotted).
+private struct RecentProjectRow: View {
+    let project: Project
+    var action: () -> Void
+    @State private var hovering = false
+    @State private var thumb: NSImage?
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Group {
+                    if let thumb {
+                        Image(nsImage: thumb).resizable().scaledToFill()
+                    } else {
+                        Image(systemName: "folder").font(.system(size: 12)).foregroundStyle(Theme.inkSoft)
+                    }
+                }
+                .frame(width: 36, height: 24)
+                .background(Theme.fill)
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+                .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.border, lineWidth: 1))
+                Text(project.name.isEmpty ? "Untitled" : project.name)
+                    .font(.system(size: 13)).foregroundStyle(Theme.ink)
+                    .lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 5)
+            .background(hovering ? Theme.fill : .clear, in: RoundedRectangle(cornerRadius: 7))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 8)
+        .onHover { hovering = $0 }
+        .task(id: project.id) { thumb = NSImage(contentsOf: ProjectStore.thumbnailURL(for: project)) }
     }
 }
 

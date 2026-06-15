@@ -1064,6 +1064,7 @@ final class AppModel {
                 if role == .copy, phase == .clean {
                     showToast("Dansk oversættelse færdig", icon: "character.bubble")
                 }
+                if role == .build, previewURL != nil { captureThumbnail() }
                 maybeAutoCopyPass(afterRole: role)
             }
         }
@@ -1308,6 +1309,41 @@ final class AppModel {
 
     func openInBrowser() {
         if let url = previewURL { NSWorkspace.shared.open(url) }
+    }
+
+    /// Snapshot the live preview into the project's `.forge/thumb.png` so the
+    /// recent-projects list can show a visual thumbnail. Fire-and-forget; reuses
+    /// the offscreen capturer (a separate HTTP client to the dev server, so it
+    /// doesn't disturb the live preview).
+    func captureThumbnail() {
+        guard let url = previewURL else { return }
+        let dest = ProjectStore.thumbnailURL(for: currentProject)
+        Task {
+            guard let image = try? await DesignCapture().capture(url, timeout: .seconds(12)) else { return }
+            Self.writeThumbnail(image, to: dest)
+        }
+    }
+
+    /// Downscale an image and write it as a PNG (for project thumbnails).
+    static func writeThumbnail(_ image: NSImage, to url: URL, maxWidth: CGFloat = 480) {
+        guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) else { return }
+        let pw = rep.pixelsWide, ph = rep.pixelsHigh
+        guard pw > 0, ph > 0 else { return }
+        let scale = CGFloat(pw) > maxWidth ? maxWidth / CGFloat(pw) : 1
+        let tw = max(1, Int(CGFloat(pw) * scale)), th = max(1, Int(CGFloat(ph) * scale))
+        guard let target = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: tw, pixelsHigh: th,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return }
+        target.size = NSSize(width: tw, height: th)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: target)
+        rep.draw(in: NSRect(x: 0, y: 0, width: tw, height: th))
+        NSGraphicsContext.restoreGraphicsState()
+        guard let png = target.representation(using: .png, properties: [:]) else { return }
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? png.write(to: url)
     }
 
     func shutdown() async {
