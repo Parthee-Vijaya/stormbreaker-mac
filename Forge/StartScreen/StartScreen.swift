@@ -10,6 +10,7 @@ import ForgeKit
 struct StartScreen: View {
     @Environment(AppModel.self) private var model
     @State private var showName = false
+    @State private var showDashboard = false   // C11: project dashboard grid
 
     var body: some View {
         @Bindable var model = model
@@ -68,6 +69,7 @@ struct StartScreen: View {
             SidebarRow(title: "Kopiér design fra link", icon: "link") { model.showLinkDialog = true }
             SidebarRow(title: "Start tutorial", icon: "graduationcap") { model.startTutorial() }
             SidebarRow(title: "Prøv et eksempel", icon: "sparkles") { model.tryExample() }
+            SidebarRow(title: "Alle projekter", icon: "square.grid.2x2") { showDashboard = true }
 
             sectionLabel("SENESTE").padding(.top, 18)
             ScrollView {
@@ -101,7 +103,12 @@ struct StartScreen: View {
 
     // MARK: - Main
 
+    @ViewBuilder
     private func main(_ model: AppModel) -> some View {
+        if showDashboard { dashboard(model) } else { launchMain(model) }
+    }
+
+    private func launchMain(_ model: AppModel) -> some View {
         VStack(spacing: 0) {
             HStack {
                 Spacer()
@@ -180,6 +187,60 @@ struct StartScreen: View {
         }
         .frame(maxWidth: 600)
         .padding(.top, 8)
+    }
+
+    // MARK: - Project dashboard (C11)
+
+    private func dashboard(_ model: AppModel) -> some View {
+        let projects = model.projects.filter { !$0.name.isEmpty && $0.name != "Untitled" }
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Button { showDashboard = false } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "chevron.left").font(.system(size: 11, weight: .semibold))
+                        Text("Tilbage").font(.system(size: 13))
+                    }.foregroundStyle(Theme.inkSoft)
+                }.buttonStyle(.plain)
+                Spacer()
+                Text("Dine projekter").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.ink)
+                Spacer()
+                Button { showDashboard = false; model.newProject() } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
+                        Text("Nyt").font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundStyle(Theme.onAccent)
+                    .padding(.horizontal, 11).padding(.vertical, 5)
+                    .background(Theme.accent, in: Capsule())
+                }.buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20).padding(.vertical, 16)
+            Divider().overlay(Theme.border)
+            if projects.isEmpty {
+                Spacer()
+                Text("Ingen projekter endnu — byg dit første fra forsiden.")
+                    .font(.system(size: 13)).foregroundStyle(Theme.inkFaint)
+                    .frame(maxWidth: .infinity)
+                Spacer()
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 210), spacing: 16)], spacing: 16) {
+                        ForEach(projects) { project in
+                            DashboardCard(project: project) { showDashboard = false; model.switchTo(project) }
+                        }
+                    }
+                    .padding(20)
+                }
+            }
+        }
+    }
+
+    /// Localised "for 2 timer siden" etc. for the dashboard cards.
+    static func relativeDate(_ date: Date) -> String {
+        let f = RelativeDateTimeFormatter()
+        f.locale = Locale(identifier: "da")
+        f.unitsStyle = .full
+        return f.localizedString(for: date, relativeTo: Date())
     }
 }
 
@@ -274,6 +335,60 @@ private struct RecentProjectRow: View {
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 8)
+        .onHover { hovering = $0 }
+        .task(id: project.id) { thumb = NSImage(contentsOf: ProjectStore.thumbnailURL(for: project)) }
+        .contextMenu {
+            Button { model.beginRename(project) } label: { Label("Omdøb…", systemImage: "pencil") }
+            Button(role: .destructive) { confirmDelete = true } label: { Label("Slet", systemImage: "trash") }
+        }
+        .confirmationDialog("Slet “\(project.name.isEmpty ? "Untitled" : project.name)”?",
+                            isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Slet projekt", role: .destructive) { model.deleteProject(project) }
+            Button("Annuller", role: .cancel) {}
+        } message: {
+            Text("Projektets kode, chat og historik slettes permanent. Dette kan ikke fortrydes.")
+        }
+    }
+}
+
+/// C11: a project dashboard card — larger thumbnail + name + last-edited, with a
+/// rename/delete context menu. Opens the project on click.
+private struct DashboardCard: View {
+    @Environment(AppModel.self) private var model
+    let project: Project
+    var action: () -> Void
+    @State private var hovering = false
+    @State private var thumb: NSImage?
+    @State private var confirmDelete = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 0) {
+                Group {
+                    if let thumb {
+                        Image(nsImage: thumb).resizable().scaledToFill()
+                    } else {
+                        Image(systemName: "folder").font(.system(size: 22))
+                            .foregroundStyle(Theme.inkFaint).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .frame(height: 120).frame(maxWidth: .infinity).clipped().background(Theme.fill)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(project.name.isEmpty ? "Untitled" : project.name)
+                        .font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.ink)
+                        .lineLimit(1).truncationMode(.middle)
+                    Text("Redigeret \(StartScreen.relativeDate(project.updatedAt))")
+                        .font(.system(size: 11)).foregroundStyle(Theme.inkFaint)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading).padding(10)
+            }
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusM))
+            .overlay(RoundedRectangle(cornerRadius: Theme.radiusM)
+                .strokeBorder(hovering ? Theme.borderStrong : Theme.border, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .task(id: project.id) { thumb = NSImage(contentsOf: ProjectStore.thumbnailURL(for: project)) }
         .contextMenu {
