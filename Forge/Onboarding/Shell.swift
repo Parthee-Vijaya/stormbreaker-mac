@@ -20,8 +20,13 @@ enum Shell {
                     continuation.resume(returning: "")
                     return
                 }
+                // Terminate a hanging login shell after 8s (a stuck .zshrc would
+                // otherwise block onboarding detection forever).
+                let watchdog = DispatchWorkItem { if process.isRunning { process.terminate() } }
+                DispatchQueue.global().asyncAfter(deadline: .now() + 8, execute: watchdog)
                 let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
                 process.waitUntilExit()
+                watchdog.cancel()
                 continuation.resume(returning: String(decoding: data, as: UTF8.self))
             }
         }

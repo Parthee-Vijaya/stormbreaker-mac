@@ -43,11 +43,15 @@ public actor CheckpointManager {
     }
 
     /// Revert the working tree to a snapshot. Untracked source is removed;
-    /// ignored paths (`node_modules`) survive.
-    public func restore(to sha: String) {
+    /// ignored paths (`node_modules`) survive. Returns false (without touching the
+    /// tree) if the reset fails — otherwise `clean -fd` would still wipe untracked
+    /// files even on an invalid sha (data loss).
+    @discardableResult
+    public func restore(to sha: String) -> Bool {
         ensureRepo()
-        _ = runGit(["reset", "--hard", sha])
+        guard runGit(["reset", "--hard", sha]).status == 0 else { return false }
         _ = runGit(["clean", "-fd"])
+        return true
     }
 
     /// Unified diff from `from` to `to` (another sha), or to the working tree

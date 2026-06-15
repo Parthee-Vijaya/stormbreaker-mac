@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `4b3b307` 2026-06-15 — Roadmap: Supabase + multi-framework + syntax-highlight done
 - `5ef3f95` 2026-06-15 — Supabase backend integration (XL)
 - `83b8ea2` 2026-06-15 — Multi-framework: React, Svelte or Vue (XL)
 - `b308f85` 2026-06-15 — Share live link over LAN/Tailscale
@@ -93,5 +94,4 @@ ollama list | grep qwen2.5-coder
 - `4ee03c9` 2026-06-15 — Tidier project names from the first prompt
 - `9654261` 2026-06-15 — Toast notifications for async successes
 - `5d5dc0c` 2026-06-15 — Friendliness: delete confirmation, keyboard shortcuts, copy-code
-- `6758a32` 2026-06-15 — Fix production build / deploy: drop tsc from the template build script
 <!-- COMMITLOG:END -->

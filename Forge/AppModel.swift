@@ -523,7 +523,7 @@ final class AppModel {
     private func runDeploy(repo: String) async {
         let owner = preferences.githubOwner.isEmpty ? "Parthee-Vijaya" : preferences.githubOwner
         let ownerPrefix = preferences.githubOwner.isEmpty ? "" : "\(preferences.githubOwner)/"
-        let scopeFlag = preferences.vercelScope.isEmpty ? "" : " --scope \(preferences.vercelScope)"
+        let scopeFlag = preferences.vercelScope.isEmpty ? "" : " --scope \(Self.shellQuote(preferences.vercelScope))"
 
         deployStatus = "Preparing repository…"
         _ = try? await deployShell(
@@ -533,7 +533,7 @@ final class AppModel {
 
         deployStatus = "Pushing to GitHub…"
         let githubOutput = (try? await deployShell(
-            "gh repo create \(ownerPrefix)\(repo) --private --source=. --remote=origin --push 2>&1 "
+            "gh repo create \(Self.shellQuote("\(ownerPrefix)\(repo)")) --private --source=. --remote=origin --push 2>&1 "
             + "|| git push -u origin HEAD 2>&1")) ?? ""
         deployGithubURL = Self.firstMatch(#"https://github\.com/[^\s]+"#, in: githubOutput)
             ?? URL(string: "https://github.com/\(owner)/\(repo)")
@@ -1398,11 +1398,16 @@ final class AppModel {
         guard !isBusy, let sha = message.checkpoint else { return }
         let cp = checkpoints
         Task {
-            await cp.restore(to: sha)
+            let ok = await cp.restore(to: sha)
             await refreshFiles()
             reloadPreview()
-            statusText = "Restored to checkpoint."
-            showToast("Gendannet til tidligere version", icon: "arrow.uturn.backward")
+            if ok {
+                statusText = "Restored to checkpoint."
+                showToast("Gendannet til tidligere version", icon: "arrow.uturn.backward")
+            } else {
+                statusText = "Kunne ikke gendanne (ugyldig checkpoint)."
+                showToast("Kunne ikke gendanne checkpoint", icon: "exclamationmark.triangle.fill", style: .warning)
+            }
         }
     }
 

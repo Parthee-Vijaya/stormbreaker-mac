@@ -82,8 +82,14 @@ public struct NodeResolver: Sendable {
         process.standardError = Pipe()
         do {
             try process.run()
+            // A hanging shell init (.zshrc waiting on network, stuck nvm/starship)
+            // would otherwise block readToEnd() forever — terminate after 5s so the
+            // resolver falls back to the well-known candidate paths instead.
+            let watchdog = DispatchWorkItem { if process.isRunning { process.terminate() } }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 5, execute: watchdog)
             let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
             process.waitUntilExit()
+            watchdog.cancel()
             let out = String(decoding: data, as: UTF8.self)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             return out.split(separator: ":").map(String.init)
