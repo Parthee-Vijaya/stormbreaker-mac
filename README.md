@@ -1,233 +1,248 @@
 # Forge
 
-**Local-first, open-source app builder for macOS** — a native SwiftUI take on the
-Lovable.dev / Bolt.new pattern, except the model runs on *your* Mac and the code lands on
-*your* disk. Type a prompt; an AI agent writes a real React / Svelte / Vue / Next.js
-project, Forge installs it, runs the dev server, and shows a live preview with
-hot-module-reload. No cloud account required, no code leaves your machine.
+**Gratis, lokal app-bygger til macOS — lavet til vibecoding-nybegyndere.** Et native
+SwiftUI-take på Lovable.dev / Bolt.new-mønsteret, bare med den forskel at modellen kører
+på *din* Mac og koden lander på *din* disk. Skriv en prompt i almindeligt sprog; en
+AI-agent skriver et rigtigt React- / Svelte- / Vue- / Next.js-projekt, installerer det,
+starter dev-serveren og viser et live-preview med hot-reload.
 
-![Forge start screen](docs/screenshots/01-start.png)
+Tanken er enkel: både **appen og de AI-modeller** du bruger er primært **open source og
+gratis**, så du kan bygge til dit eget formål uden at tænke på abonnementer, API-regninger
+eller skjulte omkostninger.
 
-## Why Forge
+🔗 **Website:** [parthee-vijaya.github.io/forge-mac](https://parthee-vijaya.github.io/forge-mac/)
 
-- **Local-first & private.** Point it at [Ollama](https://ollama.com) or
-  [LM Studio](https://lmstudio.ai) and the whole loop — prompt → generated code → preview
-  — happens on-device. Your prompts and your source never leave the Mac.
-- **Real files, not a sandbox.** Every project is a normal folder on disk you can open in
-  any editor, commit to git, and run with `npm` yourself. Forge is a front-end to the same
-  toolchain you'd use by hand.
-- **Native, not Electron.** A genuine SwiftUI app with a `WKWebView` preview — fast cold
-  start, low memory, proper macOS window/menu behaviour.
-- **Bring your own model.** Local models for free/private work, or plug in a cloud API key
-  (OpenAI, Anthropic, Google Gemini, NVIDIA) when you want a bigger model.
+![Forge startskærm](docs/screenshots/01-start.png)
 
-## Install
+## Gratis hele vejen — også modellerne
 
-1. Download **`Forge-0.2.1.dmg`** from the
-   [latest release](https://github.com/Parthee-Vijaya/forge-mac/releases/latest).
-2. Open the DMG and drag **Forge** to **Applications**.
-3. The build is ad-hoc signed (not yet notarised — that's deferred until a paid Apple
-   Developer account is set up), so on first launch **right-click → Open** and confirm the
-   prompt. After that it opens normally.
+De fleste vibecoding-værktøjer kører i skyen og koster penge pr. besked. Forge vender det
+om: kør gratis, open-source modeller **lokalt på din egen maskine**, så der ikke er noget
+der tikker op imens du lærer og eksperimenterer.
 
-Requires **macOS 26** (Apple Silicon). You'll also want a model backend running — the
-onboarding wizard helps you install one (see [Models](#models)).
+- **Gratis lokale modeller.** Kør open-source modeller som Qwen, Llama, Mistral eller Gemma
+  lokalt via [Ollama](https://ollama.com) eller [LM Studio](https://lmstudio.ai). Ingen
+  konto, ingen kvote, ingen regning.
+- **Appen er open source.** Forge er selv open source og gratis. Hent den, kig i koden, og
+  byg videre til dit eget formål — helt uden binding.
+- **Cloud er valgfrit.** Vil du have en større model, kan du *valgfrit* tilføje din egen
+  API-nøgle (OpenAI, Anthropic, Google Gemini, NVIDIA) — men det er aldrig nødvendigt for
+  at komme i gang.
 
-## A guided tour
+## Derfor Forge
 
-Forge guides you from an empty prompt to a deployed app. Here's the full loop.
+- **Lavet til nybegyndere.** En guidet tutorial peger på hver del af appen og forklarer den
+  i almindeligt sprog, og en learning-mode forklarer fagudtryk undervejs med en altid-åben
+  ordbog. Du behøver ikke kunne kode.
+- **Lokalt & privat.** Hele løkken — prompt → kode → preview — sker på din Mac. Dine prompts
+  og din kode forlader aldrig maskinen.
+- **Rigtige filer, ikke en sandkasse.** Hvert projekt er en helt almindelig mappe, du selv
+  kan åbne i en editor, køre med `npm` og committe til git.
+- **Native, ikke Electron.** En ægte SwiftUI-app med `WKWebView`-preview — hurtig opstart,
+  lavt forbrug og rigtig macOS-opførsel.
 
-### 1 · Start — describe what you want to build
+## Installér
 
-![Start screen](docs/screenshots/01-start.png)
+1. Hent **`Forge-0.2.1.dmg`** fra
+   [seneste release](https://github.com/Parthee-Vijaya/forge-mac/releases/latest).
+2. Åbn DMG'en og træk **Forge** over i **Programmer**.
+3. Appen er ad-hoc-signeret (endnu ikke notariseret — det venter til der er en betalt Apple
+   Developer-konto), så første gang skal du **højreklik → Åbn** og bekræfte. Derefter åbner
+   den normalt.
 
-The home screen is the launchpad. Type what you want in the prompt box ("*Hvad vil du
-bygge?*"), or pick a starting point:
+Kræver **macOS 26** (Apple Silicon). Du skal også bruge en model-backend — onboarding-guiden
+hjælper dig med at installere en gratis lokal model (se [Modeller](#modeller)).
 
-- **Build / Plan toggle** (bottom-right of the composer) — *Build* generates straight away;
-  *Plan* makes the agent draft a step-by-step plan and ask clarifying questions first,
-  before writing any code.
-- **Slash commands** — type `/` in the prompt for a quick menu (see the [Slash commands](#8--slash-commands--drive-the-prompt-from-the-keyboard) step below).
-- **Framework picker** — React, Svelte, Vue (all Vite) or **Next.js** (App Router). The
-  agent scaffolds the chosen stack.
-- **Template gallery** — one-click starters (Landing page, Dashboard, Todo, Portfolio,
-  Blog, Pomodoro) so you're not staring at a blank prompt.
-- **Get started rail** — clone from Git, import a shared bundle, or "copy a design from a
-  link" to reverse-engineer an existing page.
-- **Attach** images/screenshots or a reference link, or **dictate** the prompt by voice.
-- The **active model** is always shown bottom-left.
+## Sådan virker det
 
-### 2 · Dashboard — all your projects
+Forge tager dig fra en tom prompt til en app, der kører. Her er hele løkken.
 
-![Project dashboard](docs/screenshots/02-dashboard.png)
+### 1 · Start — beskriv hvad du vil bygge
 
-Every build is saved as its own project. The dashboard shows them as a grid of live
-thumbnails with "last edited" timestamps — click to resume exactly where you left off.
-Projects can be renamed inline, duplicated, exported as a shareable bundle, or deleted
-(with a confirm step).
+![Startskærm](docs/screenshots/01-start.png)
 
-### 3 · Build & preview — chat on the left, live app on the right
+Startskærmen er udgangspunktet. Skriv hvad du vil i promptfeltet ("*Hvad vil du bygge?*"),
+eller vælg et udgangspunkt:
+
+- **Build / Plan-skift** (nederst til højre i feltet) — *Build* bygger med det samme; *Plan*
+  får agenten til at lægge en trinvis plan og stille opklarende spørgsmål først, før der
+  skrives kode.
+- **Slash-kommandoer** — skriv `/` i prompten for en hurtig menu (se trin 8 nedenfor).
+- **Framework-vælger** — React, Svelte, Vue (alle Vite) eller **Next.js** (App Router).
+- **Skabelon-galleri** — ét-klik-startpunkter (landingsside, dashboard, todo, portfolio,
+  blog, pomodoro), så du ikke starter på en blank side.
+- **Kom i gang-panel** — klon fra Git, importér en delt bundle, eller "kopiér et design fra
+  et link".
+- **Vedhæft** billeder/skærmbilleder eller et link, eller **diktér** prompten med stemmen.
+- Den **aktive model** vises altid nederst til venstre.
+
+### 2 · Dashboard — alle dine projekter
+
+![Projekt-dashboard](docs/screenshots/02-dashboard.png)
+
+Hvert build gemmes som sit eget projekt. Dashboardet viser dem som et gitter af live-
+miniaturer med "sidst redigeret"-tidsstempler — klik for at fortsætte præcis hvor du slap.
+Projekter kan omdøbes, eksporteres som en delbar bundle, eller slettes (med bekræftelse).
+
+### 3 · Byg & preview — chat til venstre, live app til højre
 
 ![Live preview](docs/screenshots/03-preview.png)
 
-This is where the work happens. The agent streams its reasoning and edits on the left
-while the **live preview** renders on the right against a local Vite/Next dev server with
-hot-reload. The preview has browser-style chrome — a real URL bar
-(`http://localhost:…`), reload, and a responsive-size selector. Keep iterating in the
-chat box ("*Describe a change…*"); each turn is checkpointed so you can restore or diff
-any previous state. A **status bar** runs along the bottom — dev-server state + port, git
-branch, active model, and the project's running token total, always in view.
+Her sker arbejdet. Agenten streamer sine tanker og rettelser til venstre, mens **live-
+preview'et** renderer til højre mod en lokal Vite-/Next-dev-server med hot-reload.
+Preview'et har browser-agtig ramme — en rigtig URL-linje (`http://localhost:…`), genindlæs
+og en størrelsesvælger. Bliv ved med at iterere i chatfeltet; hver tur gemmes som et
+checkpoint, så du kan gendanne eller se forskelle. En **statusbar** nederst viser dev-
+server + port, git-branch, aktiv model og projektets samlede forbrug — altid synligt.
 
-### 4 · Code — read and inspect everything the agent wrote
+### 4 · Kode — se alt hvad agenten skrev
 
-![Code view](docs/screenshots/04-code.png)
+![Kode-visning](docs/screenshots/04-code.png)
 
-Flip the **Preview / Code** toggle to see the actual source. A file tree (keyboard-
-navigable) sits next to a syntax-highlighted editor with line numbers and an active-line
-highlight. Open files become **tabs** (switch, or close with ×), and a **minimap** down
-the right edge gives a bird's-eye overview with click/drag-to-scroll. You can watch files
-being written live as the agent works, copy any file, or open the whole project in your
-editor / Finder.
+Skift til **Preview / Code** for at se kildekoden. Et fil-træ (kan navigeres med tastaturet)
+ligger ved siden af en editor med syntaksfarvning, linjenumre og aktiv-linje-markering.
+Åbne filer bliver til **faner** (skift, eller luk med ×), og et **minimap** i højre kant
+giver et fugleperspektiv med klik/træk-til-scroll. Se filer blive skrevet live, kopiér en
+fil, eller åbn hele projektet i din egen editor / Finder.
 
-### 5 · Terminal — drop down to the shell
+### 5 · Terminal — ned i skallen
 
-![Built-in terminal](docs/screenshots/05-terminal.png)
+![Indbygget terminal](docs/screenshots/05-terminal.png)
 
-A built-in terminal (`⌘T`) scoped to the project folder, for the moments you want to run a
-command yourself — inspect `npm` output, add a package, poke at the dev server. Dev-server
-logs and JS errors are captured per project so failures are easy to diagnose.
+En indbygget terminal (`⌘T`) i projektmappen, til når du selv vil køre en kommando —
+inspicér `npm`-output, tilføj en pakke, eller pille ved dev-serveren. Dev-server-logs og
+JS-fejl gemmes pr. projekt, så fejl er nemme at diagnosticere.
 
-### 6 · Deploy — ship it
+### 6 · Deploy — sæt den online
 
-![Deploy menu](docs/screenshots/06-deploy.png)
+![Deploy-menu](docs/screenshots/06-deploy.png)
 
-When it's ready, deploy straight from the toolbar. Targets include **Vercel**, **Netlify**
-and **GitHub Pages**, plus push-to-GitHub. Deploy history is tracked per project, env vars
-in your `.env` are pushed to the host, and you get a shareable live link back.
+Når den er klar, deploy direkte fra værktøjslinjen. Mål inkluderer **Vercel**, **Netlify**
+og **GitHub Pages**, plus push til GitHub. Deploy-historik gemmes pr. projekt,
+miljøvariabler i din `.env` sendes med til hosten, og du får et delbart live-link tilbage.
 
-### 7 · Shortcuts — drive it from the keyboard
+### 7 · Genveje — styr det fra tastaturet
 
-![Keyboard shortcuts](docs/screenshots/07-shortcuts.png)
+![Tastaturgenveje](docs/screenshots/07-shortcuts.png)
 
-Press `⌘/` for the cheat sheet, or `⌘K` for the command palette. Everything has a
-shortcut — new project, settings, stop generation, toggle code/preview, reload, terminal —
-so you rarely need to reach for the mouse. The cheat sheet also lists the slash commands.
+Tryk `⌘/` for genvejsoversigten, eller `⌘K` for kommando-paletten. Alt har en genvej — nyt
+projekt, indstillinger, stop generering, skift kode/preview, genindlæs, terminal — så du
+sjældent skal bruge musen. Oversigten viser også slash-kommandoerne.
 
-### 8 · Slash commands — drive the prompt from the keyboard
+### 8 · Slash-kommandoer — styr prompten fra tastaturet
 
-![Slash commands](docs/screenshots/08-slash.png)
+![Slash-kommandoer](docs/screenshots/08-slash.png)
 
-Type `/` in the prompt for a filterable menu (↑/↓ to move, Enter or Tab to pick, Esc to
-dismiss). Danish and English aliases both work:
+Skriv `/` i prompten for en menu (↑/↓ for at flytte, Enter eller Tab for at vælge, Esc for
+at lukke). Både danske og engelske aliasser virker:
 
-- `/build` · `/byg` and `/plan` · `/planlæg` flip the agent mode (also applied inline when
-  you type the token + space, e.g. "`/plan `").
-- `/fix` · `/ret`, `/style` · `/stil`, `/responsive` · `/mobil`, and `/explain` · `/forklar`
-  prefill a ready-made brief so you can fire off a common request in two keystrokes.
+- `/byg` · `/build` og `/plan` · `/planlæg` skifter agentens tilstand (anvendes også inline
+  når du skriver kommandoen + mellemrum, fx "`/plan `").
+- `/ret` · `/fix`, `/stil` · `/style`, `/mobil` · `/responsive` og `/forklar` · `/explain`
+  udfylder en færdig prompt, så du kan affyre en almindelig anmodning med få tastetryk.
 
-### 9 · Guided tutorial — learn vibecoding as you go
+### 9 · Guidet tutorial — lær vibecoding undervejs
 
-![Guided tutorial](docs/screenshots/09-tutorial.png)
+![Guidet tutorial](docs/screenshots/09-tutorial.png)
 
-New to this? **Start tutorial** (start-screen sidebar) runs a spotlight walkthrough that
-points at each part of the UI and explains it in plain language — what a *prompt* is,
-*Build vs Plan*, where the code and preview live. Paired with **Learning mode** (a toggle
-in Settings), Forge surfaces one-time explainer cards at milestones (first build, an
-auto-fix, first deploy) and keeps an always-open glossary of the technical terms.
+Ny i det her? **Start tutorial** (i startskærmens sidebar) kører en spotlight-gennemgang,
+der peger på hver del af appen og forklarer den i almindeligt sprog — hvad en *prompt* er,
+*Build vs Plan*, hvor koden og preview'et bor. Sammen med **learning-mode** (en kontakt i
+Indstillinger) viser Forge forklaringskort ved milepæle (første build, en auto-rettelse,
+første deploy) og holder en altid-åben ordbog over fagudtrykkene.
 
-## Features at a glance
+## Alt i kassen
 
-**Agent & engine**
-- Streaming artifact parser with line-replace / diff edits (not just whole-file rewrites).
-- Self-correcting agent loop: runs `tsc --noEmit` and a functional smoke test, then fixes
-  its own type/build errors before handing back.
-- Smart context management + a model-initiated *read-file* tool so the agent can inspect
-  the project it's editing.
-- Per-turn checkpoints (shadow git) with restore & diff.
-- Chat-with-codebase (read-only RAG) — ask questions about the generated project.
-- Pluggable agent backends and an **MCP server** (`forge-mcp`) that exposes a project to
-  external agents.
+**Agent & motor**
+- Streaming-parser med line-replace / diff-rettelser (ikke kun hele filer).
+- Selv-rettende agent-løkke: kører `tsc --noEmit` + en funktionel røgtest og retter sine
+  egne type-/build-fejl, før den afleverer.
+- Smart kontekst-styring + et model-initieret *read-file*-værktøj, så agenten kan inspicere
+  det projekt den redigerer.
+- Checkpoint pr. tur (skygge-git) med gendan & diff.
+- Spørg-om-koden (read-only RAG) — stil spørgsmål om det genererede projekt.
+- Pluggbare agent-backends og en **MCP-server** (`forge-mcp`) der eksponerer et projekt til
+  eksterne agenter.
 
 **Workflow**
-- Multi-framework: React / Svelte / Vue (Vite) + **Next.js** (App Router).
-- Templates, Git clone, design-from-link, and import/export of shareable project bundles.
-- Visual editing, "change the style/palette" injection, and a dependency UI for adding /
-  removing npm packages.
-- Command palette, full keyboard map, voice dictation (CanaryKit), toasts, token counter.
-- Plan mode with structured follow-up questions before code is written.
+- Flere frameworks: React / Svelte / Vue (Vite) + **Next.js** (App Router).
+- Skabeloner, Git-klon, design-fra-link, og import/eksport af delbare projekt-bundles.
+- Visuel redigering, "skift stil/palette"-injektion, og en UI til at tilføje/fjerne
+  npm-pakker.
+- Kommando-palette, fuld tastatur-oversigt, stemme-diktering (CanaryKit), toasts,
+  forbrugs-tæller.
+- Plan-mode med strukturerede opfølgende spørgsmål, før der skrives kode.
 
 **Platform**
-- Native SwiftUI + `WKWebView`; reused WebView + process pool for fast cold start.
-- Light / midnight-dark themes with a motion language of subtle micro-interactions.
-- VS Code-style **status bar** (dev-server/port, git branch, active model, token total),
-  **editor tabs**, and an editor **minimap**.
-- Resizable, persistent split panels.
-- Native macOS notifications (build done / deploy live / failed) when backgrounded.
-- Optional HTTP status server to pair with an iOS companion.
+- Native SwiftUI + `WKWebView`; genbrugt WebView + proces-pool for hurtig opstart.
+- Lyst / mørkt (Midnat) tema med et motion-sprog af diskrete mikro-interaktioner.
+- **Statusbar** i VS Code-stil (dev-server/port, git-branch, aktiv model, forbrug),
+  **editor-faner** og et **minimap**.
+- Justerbare, vedvarende paneler.
+- Native macOS-notifikationer (build færdig / deploy live / fejlet) når appen er i baggrunden.
+- Valgfri HTTP-status-server til at parre med en iOS-companion.
 
-## Models
+## Modeller
 
-Forge talks to whatever you have running. The onboarding wizard detects your hardware,
-recommends a local coding model for your RAM tier, and can install **Ollama** or
-**LM Studio** for you (official download or Homebrew) and pull the recommended model.
+Forge taler med det du har kørende. Onboarding-guiden registrerer din hardware, anbefaler en
+lokal kode-model til din RAM-størrelse, og kan installere **Ollama** eller **LM Studio** for
+dig (officiel download eller Homebrew) og hente den anbefalede model.
 
-- **Local (free, private):** Ollama or LM Studio. Local models are called over the native
-  chat endpoint so the context window (`num_ctx`) is set correctly rather than silently
-  truncated.
-- **Cloud (bring an API key):** OpenAI, Anthropic, **Google Gemini** (has a free tier), or
-  NVIDIA NIM. Each provider has a one-click "get an API key" link in settings. Note: this
-  is a developer **API key** from the provider's console — it is metered and separate from
-  any chat subscription you may have.
+- **Lokalt (gratis, privat):** Ollama eller LM Studio. Lokale modeller kaldes via det native
+  chat-endpoint, så kontekst-vinduet (`num_ctx`) sættes korrekt i stedet for at blive
+  stiltiende afkortet.
+- **Cloud (medbring en API-nøgle):** OpenAI, Anthropic, **Google Gemini** (har et gratis
+  niveau) eller NVIDIA NIM. Hver udbyder har et ét-klik "hent en API-nøgle"-link i
+  indstillinger. Bemærk: det er en **API-nøgle** fra udbyderens konsol — målt forbrug, og
+  adskilt fra et evt. chat-abonnement. Aldrig nødvendigt for at komme i gang.
 
-Keys are stored in the macOS Keychain, never in plain text.
+Nøgler gemmes i macOS Keychain, aldrig i klartekst.
 
-## Build from source
+## Byg fra kildekode
 
 ```sh
-# Engine (pure Foundation Swift package — Command Line Tools is enough to build)
+# Motor (ren Foundation Swift-pakke — Command Line Tools er nok til at bygge)
 cd ForgeKit && swift build
 
-# ForgeKit tests need the full Xcode toolchain
+# ForgeKit-tests kræver den fulde Xcode-toolchain
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 
-# Generate the app project (Forge.xcodeproj is gitignored — regenerate after pulling)
+# Generér app-projektet (Forge.xcodeproj er gitignored — regenerér efter pull)
 xcodegen generate
 
-# Build the macOS app
+# Byg macOS-appen
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   xcodebuild -project Forge.xcodeproj -scheme Forge -arch arm64 \
     ONLY_ACTIVE_ARCH=YES -derivedDataPath ./.build-xcode build
 
-# Package a Release DMG (reads MARKETING_VERSION → Forge-<version>.dmg)
+# Pak en Release-DMG (læser MARKETING_VERSION → Forge-<version>.dmg)
 bash scripts/build-dmg.sh
 ```
 
-Run `xcodegen generate` whenever new files are added to the **Forge** app target.
-ForgeKit sources are globbed by SPM, so new files there don't need a regenerate.
+Kør `xcodegen generate` når der tilføjes nye filer til **Forge**-app-targetet. ForgeKit-kilder
+glob'es af SPM, så nye filer dér kræver ikke en regenerering.
 
-## Layout
+## Struktur
 
-- **`ForgeKit/`** — the engine (Swift Package, pure Foundation, Swift 6 strict
-  concurrency): model router, streaming artifact parser, action executor,
-  process/dev-server manager, agent loop. Also ships `forge-mcp` (MCP stdio server).
-  Builds and tests headlessly.
-- **`Forge/`** — the SwiftUI macOS app: chat pane, code editor, `WKWebView` preview,
-  terminal, onboarding, settings. Generated into `Forge.xcodeproj` via `xcodegen`.
-- **`scripts/`** — `build-dmg.sh` and friends.
-- **`docs/screenshots/`** — the images in this README.
+- **`ForgeKit/`** — motoren (Swift-pakke, ren Foundation, Swift 6 strict concurrency):
+  model-router, streaming-parser, action-executor, proces-/dev-server-manager, agent-løkke.
+  Indeholder også `forge-mcp` (MCP stdio-server). Bygger og testes headless.
+- **`Forge/`** — SwiftUI macOS-appen: chat-panel, kode-editor, `WKWebView`-preview, terminal,
+  onboarding, indstillinger. Genereres til `Forge.xcodeproj` via `xcodegen`.
+- **`docs/`** — denne sides screenshots + GitHub Pages-landingssiden (`index.html`).
+- **`scripts/`** — `build-dmg.sh` m.fl.
 
-## Status & caveats
+## Status & forbehold
 
-Forge is an actively-developed personal project, feature-complete through its P2 backlog.
-Known limitations:
+Forge er et aktivt personligt projekt, feature-komplet gennem sin P2-backlog. Kendte
+begrænsninger:
 
-- **Not notarised yet.** Ad-hoc signed; first launch needs right-click → Open. Notarisation
-  is deferred until a paid Apple Developer account is in place.
-- **Apple Silicon / macOS 26 only.**
-- Cloud-deploy targets (Vercel/Netlify) require their respective CLIs to be installed and
-  authenticated.
-- The iOS companion is host-side only so far (an HTTP status server + menu toggle); the
-  companion app itself is a separate, in-progress target.
+- **Ikke notariseret endnu.** Ad-hoc-signeret; første start kræver højreklik → Åbn.
+  Notarisering venter til der er en betalt Apple Developer-konto.
+- **Kun Apple Silicon / macOS 26.**
+- Cloud-deploy (Vercel/Netlify) kræver at deres respektive CLI'er er installeret og logget ind.
+- iOS-companion er kun host-side indtil videre (en HTTP-status-server + menu-kontakt); selve
+  iOS-appen er et separat, igangværende target.
 
-See [HANDOFF.md](HANDOFF.md) and [ROADMAP.md](ROADMAP.md) for the full stack notes,
-gotchas, and backlog.
+Se [HANDOFF.md](HANDOFF.md) og [ROADMAP.md](ROADMAP.md) for fulde stack-noter, faldgruber og
+backlog.
