@@ -96,7 +96,9 @@ public actor AgentLoop {
                 switch event {
                 case .reasoning(let r): continuation.yield(.reasoning(r)); continue
                 case .token(let token): pieces = splitter.consume(token)
-                case .done: continue
+                case .done(_, let pt, let ct):
+                    if let pt, let ct { continuation.yield(.usage(promptTokens: pt, completionTokens: ct)) }
+                    continue
                 }
                 for piece in pieces {
                     switch piece {

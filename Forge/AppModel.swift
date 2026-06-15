@@ -111,6 +111,10 @@ final class AppModel {
     var toast: ToastMessage?
     @ObservationIgnored private var toastTask: Task<Void, Never>?
 
+    // Token usage (session-only): the most recent turn + this project's running total
+    var turnTokens = 0
+    var projectTokens = 0
+
     // Model selection
     var availableModels: [ModelConfig] = []
     var selectedModelID: String = ""
@@ -377,6 +381,8 @@ final class AppModel {
         serverLog = []
         jsErrors = []
         statusText = "Ready."
+        projectTokens = 0
+        turnTokens = 0
         messages = freshState ? [] : ProjectStore.loadChat(for: project)
         templateInstalled = ProjectStore.hasBuiltApp(project)
         hasStarted = !messages.isEmpty
@@ -1023,6 +1029,7 @@ final class AppModel {
         if messages.isEmpty { renameCurrent(to: Self.projectName(from: visiblePrompt)) }
         hasStarted = true
         jsErrors = []                  // a new turn supersedes prior runtime errors
+        turnTokens = 0                 // count tokens for this turn afresh
         lastAutoFixSignature = nil
         autoFixTask?.cancel()
         let history = chatHistory()
@@ -1137,6 +1144,9 @@ final class AppModel {
             case .previewReady(let url):
                 previewURL = url
                 endStreaming()
+            case .usage(let pt, let ct):
+                turnTokens += pt + ct
+                projectTokens += pt + ct
             }
         }
         endStreaming()
@@ -1184,6 +1194,9 @@ final class AppModel {
             case .state(let state):
                 phase = state
                 statusText = Self.statusText(for: state)
+            case .usage(let pt, let ct):
+                turnTokens += pt + ct
+                projectTokens += pt + ct
             default: break
             }
         }
@@ -1366,6 +1379,13 @@ final class AppModel {
                 }
             }
         }
+    }
+
+    /// Compact token count for the status pill ("1.2k", "3.4M").
+    static func formatTokens(_ n: Int) -> String {
+        if n >= 1_000_000 { return String(format: "%.1fM", Double(n) / 1_000_000) }
+        if n >= 1_000 { return String(format: "%.1fk", Double(n) / 1_000) }
+        return "\(n)"
     }
 
     /// First line of a failure reason, capped — for an inline chat message.

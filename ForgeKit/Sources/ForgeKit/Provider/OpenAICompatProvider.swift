@@ -34,7 +34,8 @@ public struct OpenAICompatProvider: ChatModel {
                         },
                         stream: true,
                         temperature: options.temperature,
-                        max_tokens: options.maxTokens)
+                        max_tokens: options.maxTokens,
+                        stream_options: .init(include_usage: true))   // ask for a final usage chunk
                     request.httpBody = try JSONEncoder().encode(body)
 
                     let (bytes, response) = try await URLSession.shared.bytes(for: request)
@@ -44,27 +45,43 @@ public struct OpenAICompatProvider: ChatModel {
                     defer { monitor.cancel() }
 
                     let decoder = JSONDecoder()
+                    var finishReason: String?
+                    var promptTokens: Int?
+                    var completionTokens: Int?
+                    var emittedDone = false
                     for try await line in SSELineReader(bytes) {
                         if Task.isCancelled { break }
                         watchdog.touch()
                         guard line.hasPrefix("data:") else { continue }
                         let payload = line.dropFirst("data:".count).trimmingCharacters(in: .whitespaces)
                         if payload == "[DONE]" {
-                            continuation.yield(.done(reason: "stop", promptTokens: nil, completionTokens: nil))
+                            continuation.yield(.done(reason: finishReason ?? "stop",
+                                                     promptTokens: promptTokens, completionTokens: completionTokens))
+                            emittedDone = true
                             break
                         }
                         guard !payload.isEmpty, let data = payload.data(using: .utf8),
                               let chunk = try? decoder.decode(Chunk.self, from: data) else { continue }
-                        if let reasoning = chunk.choices.first?.delta.reasoningText, !reasoning.isEmpty {
+                        if let reasoning = chunk.choices?.first?.delta.reasoningText, !reasoning.isEmpty {
                             continuation.yield(.reasoning(reasoning))
                         }
-                        if let token = chunk.choices.first?.delta.content, !token.isEmpty {
+                        if let token = chunk.choices?.first?.delta.content, !token.isEmpty {
                             continuation.yield(.token(token))
                         }
-                        if let reason = chunk.choices.first?.finish_reason, !reason.isEmpty {
-                            continuation.yield(.done(reason: reason, promptTokens: nil, completionTokens: nil))
-                            break
+                        if let usage = chunk.usage {
+                            promptTokens = usage.prompt_tokens ?? promptTokens
+                            completionTokens = usage.completion_tokens ?? completionTokens
                         }
+                        // Capture the finish reason but keep reading: with
+                        // include_usage on, a final usage-only chunk (empty
+                        // choices) arrives before [DONE].
+                        if let reason = chunk.choices?.first?.finish_reason, !reason.isEmpty {
+                            finishReason = reason
+                        }
+                    }
+                    if !emittedDone {
+                        continuation.yield(.done(reason: finishReason ?? "stop",
+                                                 promptTokens: promptTokens, completionTokens: completionTokens))
                     }
                     watchdog.finish()
                     continuation.finish()
@@ -82,6 +99,9 @@ public struct OpenAICompatProvider: ChatModel {
         let stream: Bool
         let temperature: Double
         let max_tokens: Int
+        let stream_options: StreamOptions?
+
+        struct StreamOptions: Encodable { let include_usage: Bool }
 
         /// Encodes `content` as a plain string normally, or as the OpenAI
         /// multimodal parts array (`[{type:text}, {type:image_url}]`) when the
@@ -139,6 +159,11 @@ public struct OpenAICompatProvider: ChatModel {
             let delta: Delta
             let finish_reason: String?
         }
-        let choices: [Choice]
+        struct Usage: Decodable {
+            let prompt_tokens: Int?
+            let completion_tokens: Int?
+        }
+        let choices: [Choice]?
+        let usage: Usage?
     }
 }

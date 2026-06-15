@@ -24,4 +24,5 @@ public enum AgentEvent: Sendable {
     case fileChunk(String, String)  // (path, text) — streamed file body for the live editor
     case fileWritten(String)
     case previewReady(URL)
+    case usage(promptTokens: Int, completionTokens: Int)   // per provider response
 }

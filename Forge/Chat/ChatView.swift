@@ -103,6 +103,17 @@ struct ChatView: View {
             Circle().fill(Theme.accent).frame(width: 9, height: 9)
             ProjectMenu(model: model)
             Spacer()
+            if model.projectTokens > 0 {
+                HStack(spacing: 4) {
+                    Image(systemName: "number").font(.system(size: 9, weight: .semibold))
+                    Text(AppModel.formatTokens(model.projectTokens))
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundStyle(Theme.inkSoft)
+                .padding(.horizontal, 9).padding(.vertical, 5)
+                .background(Theme.fill, in: Capsule())
+                .help("Tokens — denne tur: \(AppModel.formatTokens(model.turnTokens)) · projekt i alt: \(AppModel.formatTokens(model.projectTokens))")
+            }
             ModelPicker(model: model)
             if model.preferences.learningMode {
                 Button { model.showGlossary = true } label: {
