@@ -414,9 +414,34 @@ final class AppModel {
         ProjectStore.saveProjects(projects)
     }
 
+    /// A short, tidy project title from the first prompt: strips a leading
+    /// imperative ("Byg en…", "Build a…"), cuts at the first clause boundary
+    /// (":", ",", " med ", " with "…), keeps a few words, and capitalizes the
+    /// first letter. Turns "Byg en todo-app: tilføj opgaver, marker" into
+    /// "Todo-app" instead of a truncated sentence.
     static func projectName(from prompt: String) -> String {
-        let trimmed = prompt.split(separator: " ").prefix(6).joined(separator: " ")
-        return String(trimmed.prefix(42))
+        var s = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let leadIns = ["byg mig ", "lav mig ", "byg en ", "byg et ", "lav en ", "lav et ",
+                       "kan du lave ", "kan du bygge ", "jeg vil gerne have ", "jeg vil have ",
+                       "byg ", "lav ", "build me ", "build a ", "build an ", "create a ",
+                       "create an ", "make me ", "make a ", "build ", "create ", "make ",
+                       "en ", "et ", "a ", "an "]
+        var strips = 0
+        stripping: while strips < 3 {        // peel stacked lead-ins ("lav mig en …")
+            let lower = s.lowercased()
+            for lead in leadIns where lower.hasPrefix(lead) {
+                s = String(s.dropFirst(lead.count)); strips += 1; continue stripping
+            }
+            break
+        }
+        for cutter in [":", ",", ".", " med ", " der ", " som ", " hvor ", " with ", " that ", " — ", " - "] {
+            if let r = s.range(of: cutter, options: [.caseInsensitive]) { s = String(s[..<r.lowerBound]) }
+        }
+        s = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        let words = s.split(separator: " ").prefix(5).joined(separator: " ")
+        let base = String((words.isEmpty ? s : words).prefix(36)).trimmingCharacters(in: .whitespaces)
+        guard !base.isEmpty else { return "Untitled" }
+        return base.prefix(1).uppercased() + base.dropFirst()
     }
 
     // MARK: - Deploy (GitHub + Vercel)
