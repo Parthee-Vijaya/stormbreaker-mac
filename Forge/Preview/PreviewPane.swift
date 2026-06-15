@@ -75,6 +75,19 @@ private struct PreviewToolbar: View {
                 Button { model.openInBrowser() } label: { Image(systemName: "arrow.up.forward.square") }
                     .buttonStyle(IconButtonStyle()).disabled(model.previewURL == nil)
                     .help("Åbn i browser").accessibilityLabel("Åbn preview i browser")
+                Menu {
+                    ForEach(StylePresets.all) { preset in
+                        Button(preset.name) { model.applyStyle(preset) }
+                    }
+                } label: {
+                    Image(systemName: "paintbrush")
+                        .font(.system(size: 12)).foregroundStyle(Theme.inkSoft)
+                        .frame(width: 30, height: 28)
+                        .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.radiusS))
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).frame(width: 30)
+                .disabled(model.previewURL == nil || model.isBusy)
+                .help("Skift stil").accessibilityLabel("Skift visuel stil")
                 Button { model.showDeploy = true } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "arrowtriangle.up.circle.fill").font(.system(size: 11))

@@ -12,6 +12,25 @@ struct StarterTemplate: Identifiable {
     let prompt: String
 }
 
+/// A one-click visual restyle (CAP3): a named palette/typography direction the
+/// build model applies to the current app, changing only the look — not the
+/// structure, content or logic.
+struct StylePreset: Identifiable {
+    let id: String
+    let name: String
+    let prompt: String
+}
+
+enum StylePresets {
+    static let all: [StylePreset] = [
+        StylePreset(id: "midnat", name: "Midnat", prompt: "en mørk, professionel palet: næsten-sort baggrund, violette/blå accenter, høj kontrast, bløde rundinger og subtile skygger"),
+        StylePreset(id: "pastel", name: "Pastel", prompt: "lyse, legende pastelfarver (mint, fersken, lavendel), generøse rundinger, masser af luft og en venlig tone"),
+        StylePreset(id: "brutalist", name: "Brutalist", prompt: "rå brutalisme: skarpe kanter uden rundinger, sort/hvid plus én knaldfarve, tykke borders og monospace-overskrifter"),
+        StylePreset(id: "jord", name: "Jordfarver", prompt: "varme jordfarver (terrakotta, oliven, sand), serif-overskrifter og et roligt, organisk udtryk"),
+        StylePreset(id: "mono", name: "Mono", prompt: "minimalistisk gråskala med næsten ingen farve, masser af whitespace og en tynd, elegant sans-serif"),
+    ]
+}
+
 enum StarterTemplates {
     static let all: [StarterTemplate] = [
         StarterTemplate(

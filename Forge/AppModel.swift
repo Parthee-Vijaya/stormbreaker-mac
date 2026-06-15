@@ -1043,6 +1043,17 @@ final class AppModel {
         beginTurn(visiblePrompt: visible, modelPrompt: instruction, mode: .build, role: .copy)
     }
 
+    /// Restyle the current app with a preset palette/typography (CAP3). A normal
+    /// build turn that changes only the visual treatment — never structure/logic.
+    func applyStyle(_ preset: StylePreset) {
+        guard !isBusy, hasStarted, templateInstalled else { return }
+        let visible = "Skift stil: \(preset.name)"
+        let instruction = "Restyle the current app with this visual direction — \(preset.name): \(preset.prompt). "
+            + "Change ONLY colors, typography, spacing, borders, shadows and the overall visual treatment. "
+            + "Keep every component, the layout structure, the text content and all logic functionally identical."
+        beginTurn(visiblePrompt: visible, modelPrompt: instruction, mode: .build, role: .build)
+    }
+
     /// Append a user+assistant message pair and kick off the agent task. Shared by
     /// `submit()` and `runCopyPass()`. `visiblePrompt` is what the chat shows;
     /// `modelPrompt` is what the model receives (they differ for the copy-pass).
