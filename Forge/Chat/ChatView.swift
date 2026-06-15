@@ -151,7 +151,11 @@ struct ChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    ForEach(model.messages) { MessageView(message: $0) }
+                    ForEach(model.messages) { MessageView(message: $0)
+                        // C17: new messages fade + rise in (keyed on count, so live
+                        // streaming text — same count — never re-triggers it).
+                        .transition(.opacity.combined(with: .offset(y: 8)))
+                    }
                     if model.isBusy { StatusRow(text: model.statusText) }
                     if let last = model.messages.last, last.role == .assistant,
                        last.isPlan, !last.text.isEmpty, !model.isBusy {
@@ -160,6 +164,7 @@ struct ChatView: View {
                     Color.clear.frame(height: 1).id("bottom")
                 }
                 .padding(16)
+                .animation(Theme.Motion.gentle, value: model.messages.count)   // C17: animate new messages
             }
             .onChange(of: model.messages.last?.text) {
                 withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo("bottom", anchor: .bottom) }

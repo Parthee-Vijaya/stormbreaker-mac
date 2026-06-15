@@ -26,6 +26,13 @@ enum Theme {
     static let radiusM: CGFloat = 12
     static let radiusL: CGFloat = 16
 
+    /// C17: one shared motion language so animations feel consistent app-wide.
+    enum Motion {
+        static let quick = Animation.easeOut(duration: 0.14)                       // taps / hovers
+        static let smooth = Animation.smooth(duration: 0.28)                       // layout / panels
+        static let gentle = Animation.spring(response: 0.42, dampingFraction: 0.82) // entrances
+    }
+
     static func wordmark(_ size: CGFloat) -> Font {
         .system(size: size, weight: .semibold, design: .rounded)
     }
@@ -56,6 +63,19 @@ struct IconButtonStyle: ButtonStyle {
             .background(configuration.isPressed ? Theme.fillHover : Theme.fill,
                         in: RoundedRectangle(cornerRadius: Theme.radiusS))
             .contentShape(Rectangle())
+            .scaleEffect(configuration.isPressed ? 0.92 : 1)   // C17: press feedback
+            .animation(Theme.Motion.quick, value: configuration.isPressed)
+    }
+}
+
+/// C17: a subtle press affordance (scale + dim) for primary / `.plain` buttons,
+/// using the shared motion language. Apply where a tap should feel responsive.
+struct PressableButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(Theme.Motion.quick, value: configuration.isPressed)
     }
 }
 
