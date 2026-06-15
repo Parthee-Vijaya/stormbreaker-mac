@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `83f0678` 2026-06-15 — docs: README på dansk med nybegynder/gratis-vinkel
 - `8d6ebd1` 2026-06-15 — docs: minimalistisk redesign af landing page
 - `5b4f549` 2026-06-15 — docs: landing page på dansk + nybegynder/gratis-vinkel
 - `1228091` 2026-06-15 — docs: GitHub Pages landing page (served from /docs)
@@ -93,5 +94,4 @@ ollama list | grep qwen2.5-coder
 - `6f385bc` 2026-06-15 — B8: built-in terminal (command field + output log)
 - `003bcbf` 2026-06-15 — C17: shared motion language + micro-interactions
 - `2596882` 2026-06-15 — A19: reuse preview WebView + warm shared process pool
-- `124795e` 2026-06-15 — B17-rest: push .env.local to Vercel env after deploy
 <!-- COMMITLOG:END -->

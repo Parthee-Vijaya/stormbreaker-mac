@@ -11,200 +11,294 @@
 <meta property="og:type" content="website">
 <style>
   :root{
-    --bg:#0C0E13; --ink:#E8E9ED; --soft:#8B8F9A; --faint:#5E626C;
-    --line:#1E2128; --accent:#8B7CFF; --maxw:760px;
+    --bg:#0A0C11; --bg2:#0E1017; --surface:#14171F; --surface2:#171B24;
+    --border:#222632; --border2:#2C3140;
+    --ink:#ECEDF1; --soft:#9094A0; --faint:#626775;
+    --accent:#7C6CFF; --accent-2:#A99CFF; --positive:#3FCF8E;
+    --radius:16px; --maxw:1080px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
   body{
     background:var(--bg); color:var(--ink);
-    font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     -webkit-font-smoothing:antialiased; letter-spacing:-.003em;
   }
-  a{color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line); transition:border-color .15s}
-  a:hover{border-color:var(--accent)}
+  a{color:var(--accent-2); text-decoration:none}
+  a:hover{text-decoration:underline}
   .wrap{max-width:var(--maxw); margin:0 auto; padding:0 28px}
-  em{color:var(--soft); font-style:normal}
-  b,strong{font-weight:600}
-  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.88em; color:var(--soft)}
+  em{color:var(--ink); font-style:italic}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.86em; color:var(--accent-2);
+    background:rgba(124,108,255,.10); padding:1px 6px; border-radius:5px}
+  svg{display:block}
 
-  .wordmark{font-size:15px; font-weight:600; letter-spacing:.01em; padding:40px 0 0}
+  /* Nav */
+  nav{position:sticky; top:0; z-index:10; backdrop-filter:saturate(140%) blur(12px);
+    background:rgba(10,12,17,.72); border-bottom:1px solid var(--border)}
+  nav .row{display:flex; align-items:center; gap:14px; height:60px}
+  .logo{display:flex; align-items:center; gap:10px; font-weight:650; font-size:16px; color:var(--ink)}
+  .logo .mark{width:28px;height:28px;border-radius:8px;
+    background:linear-gradient(150deg,var(--accent),#5A48E6);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 14px rgba(124,108,255,.4)}
+  .logo .mark svg{width:16px;height:16px;color:#fff}
+  nav .spacer{flex:1}
+  nav .links{display:flex; gap:24px; align-items:center}
+  nav .links a{color:var(--soft); font-size:14px}
+  nav .links a:hover{color:var(--ink); text-decoration:none}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;
+    padding:9px 16px;border-radius:10px;border:1px solid transparent;transition:transform .12s, box-shadow .12s, background .12s}
+  .btn:hover{text-decoration:none;transform:translateY(-1px)}
+  .btn.primary{background:var(--accent);color:#fff;box-shadow:0 6px 20px rgba(124,108,255,.35)}
+  .btn.primary:hover{box-shadow:0 9px 28px rgba(124,108,255,.5)}
+  .btn.ghost{background:var(--surface);color:var(--ink);border-color:var(--border2)}
+  .btn.ghost:hover{border-color:var(--accent)}
+  @media (max-width:720px){ nav .links{display:none} }
 
   /* Hero */
-  .hero{padding:72px 0 8px}
-  .hero h1{font-size:clamp(30px,4.4vw,44px); font-weight:600; line-height:1.12; letter-spacing:-.02em; max-width:15ch}
-  .hero p{margin-top:22px; font-size:18px; color:var(--soft); max-width:60ch}
-  .actions{display:flex; gap:22px; align-items:center; margin-top:30px; flex-wrap:wrap}
-  .dl{
-    border:0; background:var(--accent); color:#0C0E13; font-weight:600; font-size:15px;
-    padding:11px 18px; border-radius:8px; transition:opacity .15s;
-  }
-  .dl:hover{opacity:.88; border:0}
-  .ghostlink{font-size:15px; color:var(--soft)}
-  .meta{margin-top:16px; font-size:13px; color:var(--faint)}
+  header.hero{position:relative; overflow:hidden; padding:90px 0 70px;
+    background:
+      radial-gradient(1000px 480px at 72% -8%, rgba(124,108,255,.26), transparent 60%),
+      radial-gradient(760px 380px at 8% 4%, rgba(124,108,255,.12), transparent 55%);
+    border-bottom:1px solid var(--border)}
+  .pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--accent-2);
+    background:rgba(124,108,255,.10);border:1px solid rgba(124,108,255,.28);
+    padding:6px 13px;border-radius:999px;margin-bottom:22px}
+  .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--positive);box-shadow:0 0 10px var(--positive)}
+  .hero h1{font-size:clamp(36px,5.2vw,60px);line-height:1.06;letter-spacing:-.025em;font-weight:680;max-width:17ch}
+  .hero h1 .grad{background:linear-gradient(110deg,var(--accent-2),#D7CEFF);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.sub{margin-top:22px;font-size:clamp(16px,2vw,19px);line-height:1.6;max-width:64ch;color:var(--soft)}
+  .hero p.sub b{color:var(--ink);font-weight:600}
+  .cta{display:flex;gap:13px;flex-wrap:wrap;margin-top:32px;align-items:center}
+  .cta .meta{font-size:13px;color:var(--faint);margin-left:4px}
+  .heroshot{margin-top:54px;position:relative}
+  .heroshot img{display:block;width:100%;height:auto;border-radius:var(--radius);
+    border:1px solid var(--border2);box-shadow:0 40px 100px rgba(0,0,0,.6),0 0 0 1px rgba(124,108,255,.06)}
 
-  figure{margin:48px 0 0}
-  figure img{display:block; width:100%; height:auto; border:1px solid var(--line); border-radius:10px}
-  figcaption{margin-top:12px; font-size:13px; color:var(--faint)}
+  /* Sektioner */
+  section{padding:84px 0;border-bottom:1px solid var(--border)}
+  .eyebrow{color:var(--accent-2);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px}
+  h2{font-size:clamp(26px,3.4vw,36px);letter-spacing:-.02em;font-weight:680;margin-bottom:12px}
+  .lead{color:var(--soft);max-width:64ch;font-size:17px;margin-bottom:40px}
 
-  /* Sections */
-  section{padding:72px 0; border-top:1px solid var(--line)}
-  section:first-of-type{border-top:0}
-  h2{font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:var(--soft); margin-bottom:30px}
-  .block{margin-bottom:28px}
-  .block:last-child{margin-bottom:0}
-  .block h3{font-size:17px; font-weight:600; margin-bottom:5px}
-  .block p{color:var(--soft); font-size:15.5px}
+  .grid{display:grid;gap:18px}
+  .grid.c3{grid-template-columns:repeat(3,1fr)}
+  .grid.c2{grid-template-columns:repeat(2,1fr)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px;transition:transform .14s, border-color .14s, background .14s}
+  .card:hover{transform:translateY(-3px);border-color:var(--border2);background:var(--surface2)}
+  .ico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    color:var(--accent);background:rgba(124,108,255,.12);border:1px solid rgba(124,108,255,.22);margin-bottom:16px}
+  .ico svg{width:19px;height:19px}
+  .card h3{font-size:16.5px;font-weight:640;margin-bottom:7px}
+  .card p{font-size:14.5px;color:var(--soft);line-height:1.6}
+
+  /* Free section accent */
+  .free{background:
+    radial-gradient(640px 320px at 88% 0%, rgba(63,207,142,.10), transparent 62%), var(--bg2)}
+  .free .ico{color:var(--positive);background:rgba(63,207,142,.12);border-color:rgba(63,207,142,.22)}
 
   /* Tour */
-  .step{margin-bottom:64px}
-  .step:last-child{margin-bottom:0}
-  .step .k{font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:9px}
-  .step h3{font-size:20px; font-weight:600; letter-spacing:-.01em; margin-bottom:8px}
-  .step p{color:var(--soft); font-size:15.5px; max-width:60ch}
-  .step figure{margin-top:24px}
+  .tour{display:flex;flex-direction:column;gap:64px;margin-top:8px}
+  .step{display:grid;grid-template-columns:1fr 1.3fr;gap:40px;align-items:center}
+  .step:nth-child(even){grid-template-columns:1.3fr 1fr}
+  .step:nth-child(even) .copy{order:2}
+  .step .frame img{display:block;width:100%;height:auto;border-radius:12px;
+    border:1px solid var(--border2);box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .step .k{display:inline-flex;align-items:center;gap:8px;color:var(--accent-2);font-weight:600;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px}
+  .step .k .n{width:22px;height:22px;border-radius:7px;background:rgba(124,108,255,.14);border:1px solid rgba(124,108,255,.28);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--accent-2)}
+  .step h3{font-size:22px;font-weight:660;letter-spacing:-.015em;margin-bottom:10px}
+  .step p{color:var(--soft);font-size:15.5px;max-width:54ch}
 
   /* Features */
-  .feat{columns:2; column-gap:40px}
-  .feat p{break-inside:avoid; margin-bottom:14px; font-size:15px; color:var(--soft)}
-  .feat p b{color:var(--ink); font-weight:600}
+  .feat{columns:2;column-gap:36px}
+  .feat .f{break-inside:avoid;display:flex;gap:12px;margin-bottom:16px}
+  .feat .f .ck{flex:none;width:20px;height:20px;color:var(--accent);margin-top:1px}
+  .feat .f p{font-size:14.5px;color:var(--soft);line-height:1.55}
+  .feat .f b{color:var(--ink);font-weight:600}
 
   /* Install */
-  ol{margin-left:18px; color:var(--soft)}
-  ol li{margin-bottom:9px; padding-left:6px}
-  .note{margin-top:24px; font-size:14px; color:var(--faint); border-left:2px solid var(--line); padding-left:16px}
+  .install ol{margin-left:20px;color:var(--soft);font-size:15.5px}
+  .install li{margin-bottom:11px;padding-left:6px}
+  .callout{margin-top:26px;background:rgba(224,163,58,.07);border:1px solid rgba(224,163,58,.32);
+    border-radius:12px;padding:16px 18px;font-size:14.5px;color:var(--soft)}
+  .callout b{color:#E0A33A}
 
-  footer{padding:56px 0 80px; border-top:1px solid var(--line); font-size:14px; color:var(--faint)}
+  footer{padding:50px 0 80px;color:var(--faint);font-size:14px}
   footer a{color:var(--soft)}
+  footer .fr{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  footer .mark{width:24px;height:24px;border-radius:7px;background:linear-gradient(150deg,var(--accent),#5A48E6);display:flex;align-items:center;justify-content:center}
+  footer .mark svg{width:13px;height:13px;color:#fff}
 
-  @media (max-width:680px){ .feat{columns:1} }
+  @media (max-width:760px){
+    .grid.c3,.grid.c2{grid-template-columns:1fr}
+    .step,.step:nth-child(even){grid-template-columns:1fr}
+    .step:nth-child(even) .copy{order:0}
+    .feat{columns:1}
+  }
 </style>
 </head>
 <body>
 
-<div class="wrap">
-  <div class="wordmark">Forge</div>
+<nav>
+  <div class="wrap row">
+    <span class="logo"><span class="mark"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5 9.8 12.2 3.5 10l6.3-1.7z"/></svg></span> Forge</span>
+    <span class="spacer"></span>
+    <span class="links">
+      <a href="#gratis">Gratis</a>
+      <a href="#saadan">Sådan virker det</a>
+      <a href="#features">Funktioner</a>
+      <a href="https://github.com/Parthee-Vijaya/forge-mac">GitHub</a>
+    </span>
+    <a class="btn primary" href="https://github.com/Parthee-Vijaya/forge-mac/releases/latest">Hent til macOS</a>
+  </div>
+</nav>
 
-  <header class="hero">
-    <h1>Kom i gang med vibecoding — gratis og på din egen Mac.</h1>
-    <p>Forge er en macOS-app lavet til dig, der er <b>ny i vibecoding</b>. Skriv i almindeligt sprog hvad du vil bygge, så skriver en AI-agent en rigtig app — React, Svelte, Vue eller Next.js — direkte på din Mac og viser et live-preview. Tanken er enkel: både <b>appen og de AI-modeller</b> du bruger er primært <b>open source og gratis</b>, så du kan bygge til dit eget formål uden at tænke på abonnementer, API-regninger eller skjulte omkostninger.</p>
-    <div class="actions">
-      <a class="dl" href="https://github.com/Parthee-Vijaya/forge-mac/releases/latest">Hent til macOS</a>
-      <a class="ghostlink" href="https://github.com/Parthee-Vijaya/forge-mac">Se på GitHub →</a>
+<header class="hero">
+  <div class="wrap">
+    <span class="pill"><span class="dot"></span> Gratis · open source · til nybegyndere</span>
+    <h1>Kom i gang med <span class="grad">vibecoding</span> — gratis og på din egen Mac.</h1>
+    <p class="sub">Forge er en macOS-app lavet til dig, der er <b>ny i vibecoding</b>. Skriv i almindeligt sprog hvad du vil bygge, så skriver en AI-agent en rigtig app — React, Svelte, Vue eller Next.js — direkte på din Mac og viser et live-preview. Tanken er enkel: både <b>appen og de AI-modeller</b> du bruger er primært <b>open source og gratis</b>, så du kan bygge til dit eget formål uden at tænke på abonnementer, API-regninger eller skjulte omkostninger.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/Parthee-Vijaya/forge-mac/releases/latest">↓ Hent til macOS (.dmg)</a>
+      <a class="btn ghost" href="https://github.com/Parthee-Vijaya/forge-mac">Se på GitHub</a>
+      <span class="meta">Apple Silicon · macOS 26 · højreklik → Åbn første gang</span>
     </div>
-    <p class="meta">Apple Silicon · macOS 26 · ad-hoc-signeret (højreklik → Åbn første gang)</p>
-    <figure><img src="screenshots/03-preview.png" alt="Forge: chat til venstre, live app-preview til højre" loading="eager"></figure>
-  </header>
+    <div class="heroshot"><img src="screenshots/03-preview.png" alt="Forge: chat til venstre, live app-preview til højre" loading="eager"></div>
+  </div>
+</header>
 
-  <section>
-    <h2>Gratis hele vejen — også modellerne</h2>
-    <div class="block">
-      <h3>Gratis lokale modeller</h3>
-      <p>Kør open-source modeller som Qwen, Llama, Mistral eller Gemma lokalt via <a href="https://ollama.com">Ollama</a> eller <a href="https://lmstudio.ai">LM Studio</a>. Ingen konto, ingen kvote, ingen regning.</p>
+<section class="free" id="gratis">
+  <div class="wrap">
+    <div class="eyebrow">Gratis hele vejen</div>
+    <h2>Også modellerne</h2>
+    <p class="lead">De fleste vibecoding-værktøjer kører i skyen og koster penge pr. besked. Forge vender det om: kør gratis, open-source modeller <b style="color:var(--ink)">lokalt på din egen maskine</b>, så der ikke er noget der tikker op imens du lærer og eksperimenterer.</p>
+    <div class="grid c3">
+      <div class="card">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/></svg></span>
+        <h3>Gratis lokale modeller</h3>
+        <p>Kør open-source modeller som Qwen, Llama, Mistral eller Gemma lokalt via <a href="https://ollama.com">Ollama</a> eller <a href="https://lmstudio.ai">LM Studio</a>. Ingen konto, ingen kvote, ingen regning.</p>
+      </div>
+      <div class="card">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/></svg></span>
+        <h3>Appen er open source</h3>
+        <p>Forge er selv open source og gratis. Hent den, kig i koden, og byg videre til dit eget formål — helt uden binding.</p>
+      </div>
+      <div class="card">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 18A4.5 4.5 0 0 1 6 9.05a5.5 5.5 0 0 1 10.6-1.4A4 4 0 0 1 18 18z"/></svg></span>
+        <h3>Cloud er valgfrit</h3>
+        <p>Vil du have en større model, kan du <em>valgfrit</em> tilføje din egen API-nøgle (OpenAI, Anthropic, Google Gemini, NVIDIA) — men det er aldrig nødvendigt for at komme i gang.</p>
+      </div>
     </div>
-    <div class="block">
-      <h3>Appen er open source</h3>
-      <p>Forge er selv open source og gratis. Hent den, kig i koden, og byg videre til dit eget formål — helt uden binding.</p>
-    </div>
-    <div class="block">
-      <h3>Cloud er valgfrit</h3>
-      <p>Vil du have en større model, kan du <em>valgfrit</em> tilføje din egen API-nøgle (OpenAI, Anthropic, Google Gemini, NVIDIA) — men det er aldrig nødvendigt for at komme i gang.</p>
-    </div>
-  </section>
+  </div>
+</section>
 
-  <section>
-    <h2>Derfor Forge</h2>
-    <div class="block">
-      <h3>Lavet til nybegyndere</h3>
-      <p>En guidet tutorial peger på hver del af appen og forklarer den i almindeligt sprog, og en learning-mode forklarer fagudtryk undervejs med en altid-åben ordbog. Du behøver ikke kunne kode.</p>
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Derfor Forge</div>
+    <h2>Bygget til at lære i</h2>
+    <p class="lead">Den samme vibecoding-oplevelse som sky-værktøjerne — bare privat, gratis og lavet til nybegyndere.</p>
+    <div class="grid c2">
+      <div class="card">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-4 9 4-9 4z"/><path d="M21 9v5"/><path d="M7 11.2V15c0 1.1 2.2 2.5 5 2.5s5-1.4 5-2.5v-3.8"/></svg></span>
+        <h3>Lavet til nybegyndere</h3>
+        <p>En guidet tutorial peger på hver del af appen og forklarer den i almindeligt sprog, og en learning-mode forklarer fagudtryk undervejs med en altid-åben ordbog. Du behøver ikke kunne kode.</p>
+      </div>
+      <div class="card">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+        <h3>Lokalt &amp; privat</h3>
+        <p>Hele løkken — prompt → kode → preview — sker på din Mac. Dine prompts og din kode forlader aldrig maskinen.</p>
+      </div>
+      <div class="card">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h3.5l2 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+        <h3>Rigtige filer, ikke en sandkasse</h3>
+        <p>Hvert projekt er en helt almindelig mappe, du selv kan åbne i en editor, køre med <code>npm</code> og committe til git.</p>
+      </div>
+      <div class="card">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>
+        <h3>Native, ikke Electron</h3>
+        <p>En ægte SwiftUI-app med WKWebView-preview — hurtig opstart, lavt forbrug, og rigtig macOS-opførsel.</p>
+      </div>
     </div>
-    <div class="block">
-      <h3>Lokalt &amp; privat</h3>
-      <p>Hele løkken — prompt → kode → preview — sker på din Mac. Dine prompts og din kode forlader aldrig maskinen.</p>
-    </div>
-    <div class="block">
-      <h3>Rigtige filer, ikke en sandkasse</h3>
-      <p>Hvert projekt er en helt almindelig mappe, du selv kan åbne i en editor, køre med <code>npm</code> og committe til git.</p>
-    </div>
-    <div class="block">
-      <h3>Native, ikke Electron</h3>
-      <p>En ægte SwiftUI-app med WKWebView-preview — hurtig opstart, lavt forbrug, og rigtig macOS-opførsel.</p>
-    </div>
-  </section>
+  </div>
+</section>
 
-  <section>
-    <h2>Sådan virker det</h2>
-    <div class="step">
-      <div class="k">Start</div>
-      <h3>Beskriv hvad du vil bygge</h3>
-      <p>Skriv en prompt, vælg et framework, eller start fra en skabelon. Skift mellem Build og Plan, vedhæft et skærmbillede, eller skriv <code>/</code> for kommandoer.</p>
-      <figure><img src="screenshots/01-start.png" alt="Startskærm" loading="lazy"></figure>
+<section id="saadan">
+  <div class="wrap">
+    <div class="eyebrow">Sådan virker det</div>
+    <h2>Fra tom prompt til app, der kører</h2>
+    <div class="tour">
+      <div class="step">
+        <div class="copy"><div class="k"><span class="n">1</span> Start</div><h3>Beskriv hvad du vil bygge</h3><p>Skriv en prompt, vælg et framework (React / Svelte / Vue / Next.js), eller start fra en skabelon. Skift mellem <b style="color:var(--ink)">Build</b> og <b style="color:var(--ink)">Plan</b>, vedhæft et skærmbillede, eller skriv <code>/</code> for kommandoer.</p></div>
+        <div class="frame"><img src="screenshots/01-start.png" alt="Startskærm" loading="lazy"></div>
+      </div>
+      <div class="step">
+        <div class="copy"><div class="k"><span class="n">2</span> Slash-kommandoer</div><h3>Styr prompten fra tastaturet</h3><p>Skriv <code>/</code> for en menu. <code>/byg</code> og <code>/plan</code> skifter tilstand; <code>/ret</code>, <code>/stil</code>, <code>/mobil</code> og <code>/forklar</code> udfylder en færdig prompt for dig.</p></div>
+        <div class="frame"><img src="screenshots/08-slash.png" alt="Slash-kommando-menu" loading="lazy"></div>
+      </div>
+      <div class="step">
+        <div class="copy"><div class="k"><span class="n">3</span> Byg &amp; preview</div><h3>Chat til venstre, live app til højre</h3><p>Agenten streamer sine rettelser mens preview'et opdaterer via hot-reload. En statusbar viser dev-server, aktiv model og forbrug. Hver tur gemmes som et checkpoint — gendan eller se forskelle når som helst.</p></div>
+        <div class="frame"><img src="screenshots/03-preview.png" alt="Live preview" loading="lazy"></div>
+      </div>
+      <div class="step">
+        <div class="copy"><div class="k"><span class="n">4</span> Kode</div><h3>Se alt hvad agenten skrev</h3><p>Et fil-træ du kan navigere med tastaturet, en editor med syntaksfarvning og linjenumre, faner for åbne filer, og et minimap. Se filer blive skrevet live, eller åbn hele projektet i din egen editor.</p></div>
+        <div class="frame"><img src="screenshots/04-code.png" alt="Kode-visning med faner og minimap" loading="lazy"></div>
+      </div>
+      <div class="step">
+        <div class="copy"><div class="k"><span class="n">5</span> Deploy</div><h3>Sæt den online</h3><p>Deploy fra værktøjslinjen til Vercel, Netlify eller GitHub Pages, plus push til GitHub. Deploy-historik gemmes pr. projekt, og du får et delbart live-link tilbage.</p></div>
+        <div class="frame"><img src="screenshots/06-deploy.png" alt="Deploy-menu" loading="lazy"></div>
+      </div>
+      <div class="step">
+        <div class="copy"><div class="k"><span class="n">6</span> Lær undervejs</div><h3>Guidet tutorial &amp; learning-mode</h3><p>Ny i vibecoding? En spotlight-gennemgang forklarer hver del af appen i almindeligt sprog, og learning-mode viser forklaringskort ved milepæle — med en altid-åben ordbog over fagudtryk.</p></div>
+        <div class="frame"><img src="screenshots/09-tutorial.png" alt="Guidet tutorial" loading="lazy"></div>
+      </div>
     </div>
-    <div class="step">
-      <div class="k">Slash-kommandoer</div>
-      <h3>Styr prompten fra tastaturet</h3>
-      <p>Skriv <code>/</code> for en menu. <code>/byg</code> og <code>/plan</code> skifter tilstand; <code>/ret</code>, <code>/stil</code>, <code>/mobil</code> og <code>/forklar</code> udfylder en færdig prompt for dig.</p>
-      <figure><img src="screenshots/08-slash.png" alt="Slash-kommando-menu" loading="lazy"></figure>
-    </div>
-    <div class="step">
-      <div class="k">Byg &amp; preview</div>
-      <h3>Chat til venstre, live app til højre</h3>
-      <p>Agenten streamer sine rettelser mens preview'et opdaterer via hot-reload. En statusbar viser dev-server, aktiv model og forbrug. Hver tur gemmes som et checkpoint — gendan eller se forskelle når som helst.</p>
-      <figure><img src="screenshots/03-preview.png" alt="Live preview" loading="lazy"></figure>
-    </div>
-    <div class="step">
-      <div class="k">Kode</div>
-      <h3>Se alt hvad agenten skrev</h3>
-      <p>Et fil-træ du kan navigere med tastaturet, en editor med syntaksfarvning og linjenumre, faner for åbne filer, og et minimap. Se filer blive skrevet live, eller åbn hele projektet i din egen editor.</p>
-      <figure><img src="screenshots/04-code.png" alt="Kode-visning med faner og minimap" loading="lazy"></figure>
-    </div>
-    <div class="step">
-      <div class="k">Deploy</div>
-      <h3>Sæt den online</h3>
-      <p>Deploy fra værktøjslinjen til Vercel, Netlify eller GitHub Pages, plus push til GitHub. Deploy-historik gemmes pr. projekt, og du får et delbart live-link tilbage.</p>
-      <figure><img src="screenshots/06-deploy.png" alt="Deploy-menu" loading="lazy"></figure>
-    </div>
-    <div class="step">
-      <div class="k">Lær undervejs</div>
-      <h3>Guidet tutorial &amp; learning-mode</h3>
-      <p>Ny i vibecoding? En spotlight-gennemgang forklarer hver del af appen i almindeligt sprog, og learning-mode viser forklaringskort ved milepæle — med en altid-åben ordbog over fagudtryk.</p>
-      <figure><img src="screenshots/09-tutorial.png" alt="Guidet tutorial" loading="lazy"></figure>
-    </div>
-  </section>
+  </div>
+</section>
 
-  <section>
-    <h2>Alt i kassen</h2>
+<section id="features">
+  <div class="wrap">
+    <div class="eyebrow">Alt i kassen</div>
+    <h2>Færdigbygget hele vejen igennem</h2>
+    <p class="lead">Motor, workflow og platform — det hele er der.</p>
     <div class="feat">
-      <p><b>Selv-rettende agent</b> — kører <code>tsc</code> + en røgtest og retter sine egne fejl.</p>
-      <p><b>Line-replace / diff-rettelser</b>, ikke kun hele filer.</p>
-      <p><b>Checkpoint pr. tur</b> med gendan &amp; diff.</p>
-      <p><b>Spørg om koden</b> — read-only spørgsmål om projektet.</p>
-      <p><b>Flere frameworks</b> — React / Svelte / Vue + Next.js.</p>
-      <p><b>Billede → UI</b>, design-fra-link og delbare bundles.</p>
-      <p><b>Visuel redigering</b> + "skift stil"-palette.</p>
-      <p><b>Stemme-diktering</b>, kommando-palette og slash-kommandoer.</p>
-      <p><b>Statusbar</b>, editor-faner og minimap.</p>
-      <p><b>MCP-server</b> til eksterne agenter.</p>
-      <p><b>Lyst / mørkt</b> tema; native notifikationer.</p>
-      <p><b>Nøgler i Keychain</b>, aldrig i klartekst.</p>
+      <div class="f"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><p><b>Selv-rettende agent</b> — kører <code>tsc</code> + en røgtest og retter sine egne fejl.</p></div>
+      <div class="f"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><p><b>Line-replace / diff-rettelser</b>, ikke kun hele filer.</p></div>
+      <div class="f"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><p><b>Checkpoint pr. tur</b> med gendan &amp; diff.</p></div>
+      <div class="f"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><p><b>Spørg om koden</b> — read-only spørgsmål om projektet.</p></div>
+      <div class="f"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><p><b>Flere frameworks</b> — React / Svelte / Vue + Next.js.</p></div>
+      <div class="f"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><p><b>Billede → UI</b>, design-fra-link og delbare bundles.</p></div>
+      <div class="f"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><p><b>Visuel redigering</b> + "skift stil"-palette.</p></div>
+      <div class="f"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><p><b>Stemme-diktering</b>, kommando-palette og slash-kommandoer.</p></div>
+      <div class="f"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><p><b>Statusbar</b>, editor-faner og minimap.</p></div>
+      <div class="f"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><p><b>MCP-server</b> til eksterne agenter.</p></div>
+      <div class="f"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><p><b>Lyst / mørkt</b> tema; native notifikationer.</p></div>
+      <div class="f"><svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><p><b>Nøgler i Keychain</b>, aldrig i klartekst.</p></div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <section>
-    <h2>Installér</h2>
+<section class="install">
+  <div class="wrap">
+    <div class="eyebrow">Installér</div>
+    <h2>I gang på et minut</h2>
+    <p class="lead">Kræver macOS 26 på Apple Silicon, samt en model-backend (onboarding-guiden hjælper dig med at installere en gratis lokal model).</p>
     <ol>
-      <li>Hent <b>Forge-&lt;version&gt;.dmg</b> fra <a href="https://github.com/Parthee-Vijaya/forge-mac/releases/latest">seneste release</a>.</li>
-      <li>Åbn DMG'en og træk Forge over i Programmer.</li>
-      <li>Første gang: højreklik → Åbn og bekræft (ad-hoc-signeret, endnu ikke notariseret).</li>
+      <li>Hent <b style="color:var(--ink)">Forge-&lt;version&gt;.dmg</b> fra <a href="https://github.com/Parthee-Vijaya/forge-mac/releases/latest">seneste release</a>.</li>
+      <li>Åbn DMG'en og træk <b style="color:var(--ink)">Forge</b> over i <b style="color:var(--ink)">Programmer</b>.</li>
+      <li>Første gang: <b style="color:var(--ink)">højreklik → Åbn</b> og bekræft (ad-hoc-signeret, endnu ikke notariseret). Derefter åbner den normalt.</li>
     </ol>
-    <p class="note">Forge er et aktivt personligt projekt. Kører kun på Apple Silicon + macOS 26 og er ikke notariseret endnu. Cloud-deploy kræver at de respektive CLI'er er installeret og logget ind.</p>
-  </section>
+    <div class="callout"><b>Bemærk:</b> Forge er et aktivt personligt projekt. Det kører kun på Apple Silicon + macOS 26 og er ikke notariseret endnu, så første start kræver højreklik → Åbn. Cloud-deploy (Vercel/Netlify) kræver at deres CLI er installeret og logget ind.</div>
+  </div>
+</section>
 
-  <footer>
+<footer>
+  <div class="wrap">
+    <div class="fr"><span class="mark"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5 9.8 12.2 3.5 10l6.3-1.7z"/></svg></span> <b style="color:var(--ink);font-weight:600">Forge</b></div>
     Open source · <a href="https://github.com/Parthee-Vijaya/forge-mac">github.com/Parthee-Vijaya/forge-mac</a><br>
     Bygget med SwiftUI + ForgeKit.
-  </footer>
-</div>
+  </div>
+</footer>
 
 </body>
 </html>
