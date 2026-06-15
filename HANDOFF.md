@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `f7978d2` 2026-06-15 — "Skift stil": one-click visual restyle presets (CAP3)
 - `4ab36f0` 2026-06-15 — ⌘K command palette
 - `493d09a` 2026-06-15 — Richer chat markdown: code blocks, lists, headings
 - `f464da9` 2026-06-15 — Rename a project from the project menu
@@ -93,5 +94,4 @@ ollama list | grep qwen2.5-coder
 - `5320276` 2026-06-15 — Midnat redesign: dark-by-default theme + light mode toggle
 - `70ca17d` 2026-06-14 — Reliable preview: per-project port + honest "starting preview" status
 - `a1d07ab` 2026-06-14 — Smarter builds: read-file tool (A2b) + prompt enhancement (B14)
-- `ef0e202` 2026-06-14 — Address the user by their preferred name in the AI system prompt
 <!-- COMMITLOG:END -->

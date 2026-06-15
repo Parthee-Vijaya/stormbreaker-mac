@@ -81,7 +81,7 @@ projekt-regler ind i hver tur uden ekstra arbejde.
 
 14. **Throttle/batch UI-opdateringer under streaming** — token-for-token `appendAssistant` + log-append kan jank'e main-thread ved hurtige streams. *Sådan:* coalesce token-appends pr. frame (CADisplayLink-agtig throttle) og log-linjer i batches. **M · P2**
 
-15. **Tilgængelighed (a11y)** — ingen VoiceOver-labels, Dynamic Type eller fuld tastatur-nav. *Sådan:* `.accessibilityLabel` på ikon-knapper, fokus-styring i composer/fil-træ, respektér Dynamic Type i `Theme`-fonte. **M · P2**
+15. **Tilgængelighed (a11y)** — ◑ *delvist bygget.* `.accessibilityLabel` (dansk) på ikon-knapper i composer, preview-toolbar (+ `.isSelected` på aktiv bredde) og chat-header. *Udestår:* Dynamic Type og fuld tastatur-navigation i fil-træ/lister. **M · P2**
 
 16. **App-lags-tests** — kun `ForgeKit` er testet; `AppModel`-logik (auto-navn, projekt-skift, visual-edit-prompt) er uafprøvet. *Sådan:* udtræk ren logik (slug, projectName, prompt-bygning) til testbare funktioner; ViewInspector/snapshot for nøgle-views. **M · P2**
 
@@ -189,7 +189,7 @@ projekt-regler ind i hver tur uden ekstra arbejde.
 
 15. **Rigere empty-state** — seneste-projekter-grid, eksempel-galleri m/ thumbnails, forslag pr. kategori. *Sådan:* udvid `EmptyStateView` med projekt-genveje (fra `ProjectStore`) + kategoriserede prompt-chips. **S · P1**
 
-16. **Tema-vælger for genererede apps** — hurtig injektion af et design-system (farver/fonte) i den byggede app. *Sådan:* en palet-vælger der sender en targeted prompt ("brug denne palet: …") eller skriver CSS-variabler direkte i `index.css`. **M · P2**
+16. **Tema-vælger for genererede apps** — ✅ *bygget.* En "Skift stil"-pensel-menu i preview-toolbaren med fem presets (Midnat, Pastel, Brutalist, Jordfarver, Mono); valg fyrer `AppModel.applyStyle` — en build-tur der kun ændrer farver/typografi/spacing, ikke struktur/logik. **M · P2**
 
 17. **Micro-interactions & motion-sprog** — knap-tryk-states, besked-ind-animationer, skeleton-loaders, blød scroll. *Sådan:* en fælles motion-konvention i `Theme` (varigheder/curves); anvend konsekvent. **M · P2**
 
