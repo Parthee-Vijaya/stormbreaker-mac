@@ -116,6 +116,13 @@ final class AppModel {
     // ⌘K command palette
     var showCommandPalette = false
 
+    // Dependencies UI (npm packages)
+    struct Dependency: Identifiable, Equatable { var id: String { name }; let name: String; let isDev: Bool }
+    var showDependencies = false
+    var dependencies: [Dependency] = []
+    var newDependency = ""
+    var isManagingDeps = false
+
     // Diagnostics
     var serverLog: [LogLine] = []
     var jsErrors: [RuntimeIssue] = []
@@ -901,6 +908,53 @@ final class AppModel {
         "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
+    // MARK: - Dependencies (npm packages)
+
+    /// Read the current dependencies + devDependencies from package.json.
+    func loadDependencies() async {
+        guard let json = try? await workspace.readFile("package.json"),
+              let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            dependencies = []; return
+        }
+        var list: [Dependency] = []
+        if let deps = obj["dependencies"] as? [String: Any] {
+            list += deps.keys.sorted().map { Dependency(name: $0, isDev: false) }
+        }
+        if let dev = obj["devDependencies"] as? [String: Any] {
+            list += dev.keys.sorted().map { Dependency(name: $0, isDev: true) }
+        }
+        dependencies = list
+    }
+
+    func addDependency() {
+        let name = newDependency.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !isManagingDeps, templateInstalled else { return }
+        newDependency = ""
+        runDependencyCommand("npm install \(Self.shellQuote(name)) 2>&1", toast: "Tilføjede \(name)")
+    }
+
+    func removeDependency(_ name: String) {
+        guard !isManagingDeps, templateInstalled else { return }
+        runDependencyCommand("npm uninstall \(Self.shellQuote(name)) 2>&1", toast: "Fjernede \(name)")
+    }
+
+    /// Run an npm add/remove, then reload the list + restart the dev server so the
+    /// preview picks up the change.
+    private func runDependencyCommand(_ command: String, toast: String) {
+        isManagingDeps = true
+        statusText = "Opdaterer afhængigheder…"
+        Task {
+            await runCloneShell(command)
+            await loadDependencies()
+            let server = devServer
+            try? await server.restartForDependencyChange()
+            isManagingDeps = false
+            statusText = "Ready."
+            showToast(toast, icon: "shippingbox")
+        }
+    }
+
     // MARK: - Image attachments (B4)
 
     /// Open a file picker and attach the chosen image(s) to the next turn.
@@ -1375,6 +1429,8 @@ final class AppModel {
             c.append(PaletteCommand(id: "finder", title: "Vis i Finder", icon: "folder") { self.revealInFinder() })
             c.append(PaletteCommand(id: "zip", title: "Eksportér som zip…",
                                     icon: "archivebox") { self.exportZip() })
+            c.append(PaletteCommand(id: "deps", title: "Afhængigheder…",
+                                    icon: "shippingbox") { self.showDependencies = true })
         }
         if canCopyPass {
             c.append(PaletteCommand(id: "copy", title: "Dansk copy-pass",

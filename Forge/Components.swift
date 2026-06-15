@@ -470,6 +470,73 @@ struct CommandPaletteView: View {
     }
 }
 
+/// Manage the project's npm dependencies — list, add (npm install), remove
+/// (npm uninstall). Add/remove restarts the dev server so the preview updates.
+struct DependenciesView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        @Bindable var model = model
+        VStack(spacing: 0) {
+            HStack(spacing: 7) {
+                Image(systemName: "shippingbox").font(.system(size: 13)).foregroundStyle(Theme.accent)
+                Text("Afhængigheder").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.ink)
+                if model.isManagingDeps { ProgressView().controlSize(.small).scaleEffect(0.7) }
+                Spacer()
+                Button("Luk") { dismiss() }.buttonStyle(.plain).foregroundStyle(Theme.inkSoft)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            Divider().overlay(Theme.border)
+
+            HStack(spacing: 8) {
+                TextField("Pakkenavn (fx zustand, date-fns)", text: $model.newDependency)
+                    .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(Theme.ink).tint(Theme.accent)
+                    .padding(.horizontal, 10).padding(.vertical, 8)
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusS))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.radiusS).strokeBorder(Theme.border))
+                    .onSubmit { model.addDependency() }
+                Button { model.addDependency() } label: {
+                    Text("Tilføj").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.onAccent)
+                        .padding(.horizontal, 14).padding(.vertical, 8).background(Theme.accent, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(model.isManagingDeps || model.newDependency.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+
+            ScrollView {
+                LazyVStack(spacing: 1) {
+                    ForEach(model.dependencies) { dep in
+                        HStack(spacing: 8) {
+                            Text(dep.name).font(.system(size: 12.5, design: .monospaced)).foregroundStyle(Theme.ink)
+                            if dep.isDev {
+                                Text("dev").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.inkFaint)
+                                    .padding(.horizontal, 5).padding(.vertical, 1)
+                                    .background(Theme.fill, in: Capsule())
+                            }
+                            Spacer(minLength: 0)
+                            Button { model.removeDependency(dep.name) } label: {
+                                Image(systemName: "xmark.circle.fill").font(.system(size: 13))
+                                    .foregroundStyle(Theme.inkFaint)
+                            }
+                            .buttonStyle(.plain).disabled(model.isManagingDeps)
+                            .help("Fjern \(dep.name)")
+                        }
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(Theme.surface.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+                .padding(8)
+            }
+        }
+        .frame(width: 440, height: 480)
+        .background(Theme.canvas)
+        .preferredColorScheme(model.colorScheme)
+        .task { await model.loadDependencies() }
+    }
+}
+
 /// Dialog for renaming the current project (from the project menu's "Omdøb…").
 struct RenameDialogView: View {
     @Environment(AppModel.self) private var model
@@ -672,6 +739,9 @@ struct ProjectMenu: View {
                 }
                 Button { model.revealInFinder() } label: { Label("Reveal in Finder", systemImage: "folder") }
                 Button { model.exportZip() } label: { Label("Export as Zip…", systemImage: "archivebox") }
+                Button { model.showDependencies = true } label: {
+                    Label("Afhængigheder…", systemImage: "shippingbox")
+                }
             }
             if model.projects.count > 1 {
                 Divider()

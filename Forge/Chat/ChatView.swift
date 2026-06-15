@@ -97,6 +97,7 @@ struct ChatView: View {
         .sheet(isPresented: $model.showGlossary) { GlossaryView() }
         .sheet(isPresented: $model.showLinkDialog) { LinkDialogView() }
         .sheet(isPresented: $model.showRenameDialog) { RenameDialogView() }
+        .sheet(isPresented: $model.showDependencies) { DependenciesView() }
     }
 
     private func header(_ model: AppModel) -> some View {
