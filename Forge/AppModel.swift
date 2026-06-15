@@ -434,8 +434,8 @@ final class AppModel {
         selectedFile = nil
         editorText = ""
         projectFiles = []
-        serverLog = []
-        jsErrors = []
+        serverLog = ProjectStore.loadLogs(for: project)   // console history survives a switch
+        jsErrors = []                                      // live preview re-reports on reload
         statusText = "Ready."
         projectTokens = 0
         turnTokens = 0
@@ -461,6 +461,7 @@ final class AppModel {
 
     private func persistCurrentChat() {
         ProjectStore.saveChat(messages, for: currentProject)
+        ProjectStore.saveLogs(serverLog, for: currentProject)
         currentProject.updatedAt = Date()
         if let index = projects.firstIndex(where: { $0.id == currentProject.id }) {
             projects[index] = currentProject

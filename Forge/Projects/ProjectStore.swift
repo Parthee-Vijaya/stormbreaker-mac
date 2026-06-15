@@ -1,4 +1,5 @@
 import Foundation
+import ForgeKit
 
 /// Persists the project list (index.json) and each project's chat + code under
 /// ~/Library/Application Support/Forge/projects/<folder>/.
@@ -61,6 +62,29 @@ enum ProjectStore {
         try? FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         guard let data = try? JSONEncoder.iso.encode(messages) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    private static func logsURL(for project: Project) -> URL {
+        dir(for: project).appendingPathComponent(".forge/logs.json")
+    }
+
+    /// Dev-server console history, persisted so it survives a project switch
+    /// (runtime JS errors aren't persisted — the live preview re-reports them on
+    /// reload, so persisting would risk a stale "Fix it").
+    static func loadLogs(for project: Project) -> [LogLine] {
+        guard let data = try? Data(contentsOf: logsURL(for: project)),
+              let lines = try? JSONDecoder.iso.decode([LogLine].self, from: data) else { return [] }
+        return lines
+    }
+
+    static func saveLogs(_ lines: [LogLine], for project: Project) {
+        let url = logsURL(for: project)
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        // Cap what we persist so the file stays small.
+        let trimmed = Array(lines.suffix(200))
+        guard let data = try? JSONEncoder.iso.encode(trimmed) else { return }
         try? data.write(to: url, options: .atomic)
     }
 

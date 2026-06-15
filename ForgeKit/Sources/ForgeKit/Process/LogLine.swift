@@ -4,8 +4,8 @@ import Foundation
 ///
 /// ANSI escape codes are stripped before construction so the text is safe to
 /// render directly in SwiftUI and to scan for error signatures.
-public struct LogLine: Sendable, Identifiable, Hashable {
-    public enum Stream: String, Sendable, Hashable {
+public struct LogLine: Sendable, Identifiable, Hashable, Codable {
+    public enum Stream: String, Sendable, Hashable, Codable {
         case stdout
         case stderr
     }
