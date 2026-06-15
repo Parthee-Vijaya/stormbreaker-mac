@@ -139,6 +139,7 @@ struct CodeTextView: NSViewRepresentable {
         textView.drawsBackground = true
         textView.textContainerInset = NSSize(width: 8, height: 8)
         textView.string = text
+        SyntaxHighlighter.apply(to: textView)
 
         let scrollView = NSScrollView()
         scrollView.documentView = textView
@@ -159,6 +160,7 @@ struct CodeTextView: NSViewRepresentable {
                 textView.setSelectedRange(end)
                 textView.scrollRangeToVisible(end)
             }
+            context.coordinator.scheduleHighlight()
         }
     }
 
@@ -168,12 +170,70 @@ struct CodeTextView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         private let text: Binding<String>
         weak var textView: NSTextView?
+        private var highlightWork: DispatchWorkItem?
 
         init(text: Binding<String>) { self.text = text }
 
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             text.wrappedValue = textView.string
+            scheduleHighlight()
+        }
+
+        /// Debounced re-highlight (coalesces rapid edits + streamed chunks).
+        func scheduleHighlight() {
+            highlightWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                guard let tv = self?.textView else { return }
+                SyntaxHighlighter.apply(to: tv)
+            }
+            highlightWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: work)
+        }
+    }
+}
+
+/// A lightweight regex syntax highlighter for the code editor. Applies only
+/// foreground colors to the NSTextView's textStorage (never edits the text, so
+/// the caret/undo are untouched). Tuned for TS/JSX; dark + light palettes.
+enum SyntaxHighlighter {
+    private static func dyn(_ light: Int, _ dark: Int) -> NSColor {
+        NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor(hex: dark) : NSColor(hex: light) }
+    }
+    private static let fg      = dyn(0x14151A, 0xE6E8EE)
+    private static let keyword = dyn(0x7C3AED, 0xC792EA)
+    private static let typeC   = dyn(0x2563EB, 0x82AAFF)
+    private static let number  = dyn(0xC2410C, 0xF78C6C)
+    private static let string  = dyn(0x16A34A, 0xC3E88D)
+    private static let comment = dyn(0x9AA0AE, 0x6B7180)
+
+    private static let keywordRE = try! NSRegularExpression(pattern:
+        "\\b(const|let|var|function|return|if|else|for|while|do|import|export|from|default|class|extends|new|async|await|try|catch|finally|throw|switch|case|break|continue|type|interface|enum|public|private|protected|readonly|static|void|null|undefined|true|false|this|super|in|of|as|typeof|instanceof|yield|get|set)\\b")
+    private static let typeRE = try! NSRegularExpression(pattern: "\\b[A-Z][A-Za-z0-9_]*\\b")
+    private static let numberRE = try! NSRegularExpression(pattern: "\\b\\d+(?:\\.\\d+)?\\b")
+    private static let stringRE = try! NSRegularExpression(pattern: "\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'|`(?:\\\\.|[^`\\\\])*`")
+    private static let commentRE = try! NSRegularExpression(pattern: "//[^\\n]*|/\\*[\\s\\S]*?\\*/")
+
+    static func apply(to textView: NSTextView) {
+        guard let storage = textView.textStorage else { return }
+        let ns = storage.string as NSString
+        let full = NSRange(location: 0, length: ns.length)
+        guard ns.length < 200_000 else { return }   // skip very large files
+        storage.beginEditing()
+        storage.removeAttribute(.foregroundColor, range: full)
+        storage.addAttribute(.foregroundColor, value: fg, range: full)
+        colorize(typeRE, ns, full, storage, typeC)
+        colorize(keywordRE, ns, full, storage, keyword)
+        colorize(numberRE, ns, full, storage, number)
+        colorize(stringRE, ns, full, storage, string)     // override matches inside strings
+        colorize(commentRE, ns, full, storage, comment)   // comments win last
+        storage.endEditing()
+    }
+
+    private static func colorize(_ re: NSRegularExpression, _ ns: NSString,
+                                 _ full: NSRange, _ storage: NSTextStorage, _ color: NSColor) {
+        re.enumerateMatches(in: ns as String, range: full) { match, _, _ in
+            if let r = match?.range { storage.addAttribute(.foregroundColor, value: color, range: r) }
         }
     }
 }
