@@ -24,6 +24,14 @@ struct StartScreen: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .preferredColorScheme(model.colorScheme)
+        .overlayPreferenceValue(TourAnchorKey.self) { anchors in
+            GeometryReader { proxy in
+                if model.tourActive {
+                    TourOverlay(resolved: anchors.mapValues { proxy[$0] }, size: proxy.size)
+                }
+            }
+        }
+        .animation(.smooth(duration: 0.25), value: model.tourActive)
         .onAppear { if model.shouldAskPreferredName { showName = true } }
         .sheet(isPresented: $showName) { NamePromptView() }
         .sheet(isPresented: $model.showCloneDialog) { CloneDialogView() }
@@ -101,6 +109,7 @@ struct StartScreen: View {
                         .buttonStyle(IconButtonStyle())
                         .help("Ordbog — forklaring af fagudtryk")
                         .accessibilityLabel("Ordbog")
+                        .tourAnchor(.glossary)
                 }
             }
             .padding(14)
@@ -129,6 +138,7 @@ struct StartScreen: View {
                     onSubmit: { model.submit() }
                 )
                 .frame(maxWidth: 560)
+                .tourAnchor(.composer)
 
                 HStack(spacing: 8) {
                     Text("Framework").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.inkFaint)
@@ -139,8 +149,10 @@ struct StartScreen: View {
                     }
                     .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 260)
                 }
+                .tourAnchor(.framework)
 
                 templateGallery(model)
+                    .tourAnchor(.templates)
             }
             .padding(.horizontal, 28)
             Spacer()

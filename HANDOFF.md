@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `daefb9e` 2026-06-15 — Add Forge app icon (anvil mark) + matching in-app wordmark badge
 - `438c7e0` 2026-06-15 — Project management: delete/rename old projects + toggleable projects sidebar
 - `24d80da` 2026-06-15 — Add a functional smoke test of the generated app (interaction-level gate)
 - `83f7b88` 2026-06-15 — Extend the type-error gate to Svelte (svelte-check) and Vue (vue-tsc)
@@ -93,5 +94,4 @@ ollama list | grep qwen2.5-coder
 - `493d09a` 2026-06-15 — Richer chat markdown: code blocks, lists, headings
 - `f464da9` 2026-06-15 — Rename a project from the project menu
 - `bea57a2` 2026-06-15 — Accessibility: VoiceOver labels on icon-only buttons
-- `9bbaef4` 2026-06-15 — Roadmap: mark token counter, delete-confirm, thumbnails done
 <!-- COMMITLOG:END -->

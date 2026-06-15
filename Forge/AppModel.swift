@@ -96,6 +96,9 @@ final class AppModel {
     // Learning mode
     var currentLesson: Lesson?      // the explainer card currently shown (beginner)
     var showGlossary = false
+    // Guided tour (active spotlight walkthrough on the start screen)
+    var tourActive = false
+    var tourIndex = 0
     @ObservationIgnored private var lessonQueue: [String] = []   // milestone ids waiting to show
 
     // Start screen (clone from Git)
@@ -901,14 +904,30 @@ final class AppModel {
         submit()
     }
 
-    /// Begin the guided tutorial: turn learning mode on, reset the lessons so the
-    /// explainer cards re-fire, and seed a simple first build for the user to run.
+    /// Begin the guided tutorial: an active spotlight walkthrough of the start
+    /// screen that highlights + narrates each element, opens the glossary, and
+    /// seeds a first idea — then hands off to the milestone cards during the build.
     func startTutorial() {
         guard !isBusy else { return }
-        preferences.learningMode = true
+        preferences.learningMode = true       // so the milestone cards + glossary book appear
         preferences.learnedLessons = []
         savePreferences()
         draft = "En simpel todo-app med tilføj, fuldfør og slet"
+        tourIndex = 0
+        tourActive = true
+    }
+
+    /// Advance the guided tour. Reaching the glossary step opens the glossary so
+    /// the user actually sees it; the last step ends the tour and hands control back.
+    func tourNext() {
+        guard tourActive else { return }
+        if Tour.steps[tourIndex].stop == .glossary { showGlossary = true }
+        if tourIndex >= Tour.steps.count - 1 { endTour(); return }
+        tourIndex += 1
+    }
+
+    func endTour() {
+        tourActive = false
     }
 
     /// Clone a Git repo into a new project, open it, and (if it's a Node/Vite
