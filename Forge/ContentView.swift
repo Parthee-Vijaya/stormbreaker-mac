@@ -16,11 +16,10 @@ struct ContentView: View {
                             .transition(.move(edge: .leading))
                         Divider().overlay(Theme.border)
                     }
-                    HSplitView {
+                    PersistentHSplit(minLeft: 360, maxLeft: 720, minRight: 460) {
                         ChatView()
-                            .frame(minWidth: 360, idealWidth: 440, maxWidth: 680)
+                    } right: {
                         PreviewPane()
-                            .frame(minWidth: 480)
                     }
                 }
                 .transition(.opacity)
@@ -44,5 +43,6 @@ struct ContentView: View {
         .animation(.smooth(duration: 0.35), value: model.hasStarted)
         .animation(.smooth(duration: 0.35), value: model.preferences.onboarded)
         .sheet(isPresented: $model.showCommandPalette) { CommandPaletteView() }
+        .sheet(isPresented: $model.showShortcuts) { ShortcutsView() }
     }
 }

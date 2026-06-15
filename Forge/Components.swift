@@ -830,3 +830,107 @@ struct ProjectMenu: View {
         project.name.isEmpty ? "Untitled" : project.name
     }
 }
+
+/// Keyboard-shortcut cheat sheet (⌘/ or the ? button). A quick reference for the
+/// app's shortcuts so they're discoverable instead of hidden in the menu bar.
+struct ShortcutsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(AppModel.self) private var model
+
+    private let groups: [(String, [(key: String, label: String)])] = [
+        ("Generelt", [("⌘K", "Kommando-palette"), ("⌘N", "Nyt projekt"),
+                      ("⌘,", "Indstillinger"), ("⌘.", "Stop generering"), ("esc", "Luk dialog / palette")]),
+        ("Chat", [("⌘↩", "Send besked")]),
+        ("Kode & preview", [("⌘\\", "Skift kode / preview"), ("⌘S", "Gem fil"),
+                            ("⌘R", "Genindlæs preview"), ("⌘/", "Vis denne genvejsoversigt")]),
+    ]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Image(systemName: "keyboard").font(.system(size: 13)).foregroundStyle(Theme.accent)
+                Text("Tastaturgenveje").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.ink)
+                Spacer()
+                Button("Luk") { dismiss() }
+                    .buttonStyle(.plain).foregroundStyle(Theme.inkSoft)
+                    .keyboardShortcut(.cancelAction)   // esc closes the sheet (as it advertises)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            Divider().overlay(Theme.border)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    ForEach(groups, id: \.0) { group in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(group.0.uppercased())
+                                .font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.inkFaint)
+                            ForEach(group.1, id: \.key) { row in
+                                HStack(spacing: 12) {
+                                    Text(row.label).font(.system(size: 13)).foregroundStyle(Theme.ink)
+                                    Spacer(minLength: 0)
+                                    KeyCap(row.key)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+            }
+        }
+        .frame(width: 380, height: 440)
+        .background(Theme.canvas)
+        .preferredColorScheme(model.colorScheme)
+    }
+}
+
+private struct KeyCap: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text)
+            .font(.system(size: 12, weight: .medium, design: .rounded)).foregroundStyle(Theme.inkSoft)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Theme.fill, in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.border))
+    }
+}
+
+/// A horizontal split whose divider position is draggable AND remembered across
+/// launches (@AppStorage). Replaces HSplitView, which can't persist its position.
+struct PersistentHSplit<Left: View, Right: View>: View {
+    @AppStorage("forge.split.chatFraction") private var fraction: Double = 0.42
+    let minLeft: CGFloat
+    let maxLeft: CGFloat
+    let minRight: CGFloat
+    @ViewBuilder var left: Left
+    @ViewBuilder var right: Right
+    @State private var dragStart: Double?
+
+    var body: some View {
+        GeometryReader { geo in
+            let total = geo.size.width
+            let upper = min(maxLeft, total - minRight)
+            let leftW = max(minLeft, min(upper, total * fraction))
+            HStack(spacing: 0) {
+                left.frame(width: leftW)
+                ZStack {
+                    Rectangle().fill(Theme.border).frame(width: 1)
+                    // 16pt invisible grab-zone — a 1px line is too thin to grab comfortably.
+                    Color.clear.frame(width: 16).contentShape(Rectangle())
+                        .onHover { $0 ? NSCursor.resizeLeftRight.push() : NSCursor.pop() }
+                        .gesture(
+                            DragGesture()
+                                .onChanged { value in
+                                    let start = dragStart ?? Double(leftW)
+                                    if dragStart == nil { dragStart = start }
+                                    let newLeft = start + Double(value.translation.width)
+                                    fraction = min(max(newLeft / Double(total), Double(minLeft) / Double(total)),
+                                                   Double(upper) / Double(total))
+                                }
+                                .onEnded { _ in dragStart = nil }
+                        )
+                }
+                right.frame(maxWidth: .infinity)
+            }
+        }
+    }
+}

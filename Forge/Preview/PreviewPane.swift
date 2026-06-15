@@ -154,6 +154,11 @@ private struct PreviewToolbar: View {
                 .foregroundStyle(Theme.inkSoft)
                 .lineLimit(1)
             Spacer(minLength: 0)
+            if let px = model.previewWidth.pixelLabel {
+                Text(px)
+                    .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Theme.inkFaint)
+            }
         }
         .padding(.horizontal, 11).padding(.vertical, 6)
         .background(Theme.fill, in: Capsule())

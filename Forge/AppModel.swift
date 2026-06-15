@@ -43,6 +43,14 @@ final class AppModel {
             case .phone: "Telefon-bredde"
             }
         }
+        /// Devtools-style viewport width shown in the address bar (nil at full width).
+        var pixelLabel: String? {
+            switch self {
+            case .full: nil
+            case .tablet: "834 px"
+            case .phone: "414 px"
+            }
+        }
     }
 
     enum RightPaneMode { case preview, code }
@@ -124,6 +132,8 @@ final class AppModel {
 
     // ⌘K command palette
     var showCommandPalette = false
+    // ⌘/ keyboard-shortcut cheat sheet
+    var showShortcuts = false
 
     // Dependencies UI (npm packages)
     struct Dependency: Identifiable, Equatable { var id: String { name }; let name: String; let isDev: Bool }
