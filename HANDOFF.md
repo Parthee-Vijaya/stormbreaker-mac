@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `52a1dbb` 2026-06-15 — A15: keyboard navigation in the code-view file tree
 - `fdaeb17` 2026-06-15 — B15: voice dictation into the composer (Apple Speech)
 - `2fb7b87` 2026-06-15 — B7: Next.js as a 4th framework (basic support)
 - `fa7f732` 2026-06-15 — C11: project dashboard grid
@@ -93,5 +94,4 @@ ollama list | grep qwen2.5-coder
 - `eeef6d7` 2026-06-15 — A9: persist the dev-server console log per project
 - `ff32892` 2026-06-15 — A8: reuse node_modules across projects (APFS clone cache)
 - `8b43ac9` 2026-06-15 — A6: fuzz + edge tests for the streaming artifact parser
-- `dc2af80` 2026-06-15 — Onboarding: richer welcome hero + fuller copy on every step
 <!-- COMMITLOG:END -->

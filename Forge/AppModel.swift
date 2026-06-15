@@ -1739,7 +1739,9 @@ final class AppModel {
             settleDelay: .seconds(2),
             maxRepairAttempts: 3)
 
-        for await event in AgentLoop(deps).run(userPrompt: prompt, history: history, images: images) {
+        // B11: construct the engine via the pluggable factory (built-in AgentLoop today).
+        for await event in ForgeEngineFactory.make(.forge, deps: deps)
+            .run(userPrompt: prompt, history: history, mode: .build, images: images) {
             switch event {
             case .assistantText(let text):
                 appendAssistant(assistantIndex, text)
@@ -1820,7 +1822,8 @@ final class AppModel {
             projectContext: { [workspace] in await AppModel.buildContext(workspace, touched: touched) },
             collectErrors: { ErrorReport() })
 
-        for await event in AgentLoop(deps).run(userPrompt: prompt, history: history, mode: .plan, images: images) {
+        for await event in ForgeEngineFactory.make(.forge, deps: deps)
+            .run(userPrompt: prompt, history: history, mode: .plan, images: images) {
             switch event {
             case .assistantText(let text): appendAssistant(assistantIndex, text)
             case .reasoning(let text): appendReasoning(assistantIndex, text)
