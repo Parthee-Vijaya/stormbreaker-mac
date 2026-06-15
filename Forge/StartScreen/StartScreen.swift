@@ -229,10 +229,12 @@ private struct SidebarRow: View {
 /// A recent-project row showing a preview thumbnail (falls back to a folder icon
 /// before the project's first build is snapshotted).
 private struct RecentProjectRow: View {
+    @Environment(AppModel.self) private var model
     let project: Project
     var action: () -> Void
     @State private var hovering = false
     @State private var thumb: NSImage?
+    @State private var confirmDelete = false
 
     var body: some View {
         Button(action: action) {
@@ -261,6 +263,17 @@ private struct RecentProjectRow: View {
         .padding(.horizontal, 8)
         .onHover { hovering = $0 }
         .task(id: project.id) { thumb = NSImage(contentsOf: ProjectStore.thumbnailURL(for: project)) }
+        .contextMenu {
+            Button { model.beginRename(project) } label: { Label("Omdøb…", systemImage: "pencil") }
+            Button(role: .destructive) { confirmDelete = true } label: { Label("Slet", systemImage: "trash") }
+        }
+        .confirmationDialog("Slet “\(project.name.isEmpty ? "Untitled" : project.name)”?",
+                            isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Slet projekt", role: .destructive) { model.deleteProject(project) }
+            Button("Annuller", role: .cancel) {}
+        } message: {
+            Text("Projektets kode, chat og historik slettes permanent. Dette kan ikke fortrydes.")
+        }
     }
 }
 

@@ -10,13 +10,21 @@ struct ContentView: View {
                 OnboardingView()
                     .transition(.opacity)
             } else if model.hasStarted {
-                HSplitView {
-                    ChatView()
-                        .frame(minWidth: 360, idealWidth: 440, maxWidth: 680)
-                    PreviewPane()
-                        .frame(minWidth: 480)
+                HStack(spacing: 0) {
+                    if model.showProjectSidebar {
+                        ProjectsSidebar()
+                            .transition(.move(edge: .leading))
+                        Divider().overlay(Theme.border)
+                    }
+                    HSplitView {
+                        ChatView()
+                            .frame(minWidth: 360, idealWidth: 440, maxWidth: 680)
+                        PreviewPane()
+                            .frame(minWidth: 480)
+                    }
                 }
                 .transition(.opacity)
+                .animation(.smooth(duration: 0.28), value: model.showProjectSidebar)
             } else {
                 StartScreen()
                     .transition(.opacity)

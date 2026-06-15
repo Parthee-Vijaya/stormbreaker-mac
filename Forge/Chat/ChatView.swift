@@ -103,7 +103,12 @@ struct ChatView: View {
 
     private func header(_ model: AppModel) -> some View {
         HStack(spacing: 9) {
-            Circle().fill(Theme.accent).frame(width: 9, height: 9)
+            Button { model.showProjectSidebar.toggle() } label: {
+                Image(systemName: "sidebar.leading")
+            }
+            .buttonStyle(IconButtonStyle())
+            .help("Vis/skjul projekter")
+            .accessibilityLabel("Vis eller skjul projekter")
             ProjectMenu(model: model)
             Spacer()
             if model.projectTokens > 0 {

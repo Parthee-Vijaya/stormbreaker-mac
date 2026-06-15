@@ -603,12 +603,12 @@ struct RenameDialogView: View {
                 .padding(12)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.radiusM))
                 .overlay(RoundedRectangle(cornerRadius: Theme.radiusM).strokeBorder(Theme.border))
-                .onSubmit { model.renameCurrentProject(to: model.renameText) }
+                .onSubmit { model.commitRename() }
             HStack {
-                Button("Annuller") { dismiss() }
+                Button("Annuller") { model.projectToRename = nil; dismiss() }
                     .buttonStyle(.plain).foregroundStyle(Theme.inkFaint)
                 Spacer()
-                Button { model.renameCurrentProject(to: model.renameText) } label: {
+                Button { model.commitRename() } label: {
                     Text("Gem").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.onAccent)
                         .padding(.horizontal, 18).padding(.vertical, 8)
                         .background(Theme.accent, in: Capsule())
@@ -780,10 +780,9 @@ struct ProjectMenu: View {
             Divider()
             Button { model.newProject() } label: { Label("New project", systemImage: "plus") }
             if model.hasStarted {
-                Button {
-                    model.renameText = displayName(model.currentProject)
-                    model.showRenameDialog = true
-                } label: { Label("Omdøb…", systemImage: "pencil") }
+                Button { model.beginRename(model.currentProject) } label: {
+                    Label("Omdøb…", systemImage: "pencil")
+                }
                 Button { model.openInEditor() } label: {
                     Label("Open in editor", systemImage: "chevron.left.forwardslash.chevron.right")
                 }

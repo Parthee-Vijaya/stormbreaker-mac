@@ -74,6 +74,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `24d80da` 2026-06-15 — Add a functional smoke test of the generated app (interaction-level gate)
 - `83f7b88` 2026-06-15 — Extend the type-error gate to Svelte (svelte-check) and Vue (vue-tsc)
 - `01ca1fc` 2026-06-15 — Catch TypeScript errors in the build loop (real tsc --noEmit gate)
 - `de705cb` 2026-06-15 — Harden: parser cancel-flush, keychain, preview bridge, error cap, prompt-injection
@@ -93,5 +94,4 @@ ollama list | grep qwen2.5-coder
 - `bea57a2` 2026-06-15 — Accessibility: VoiceOver labels on icon-only buttons
 - `9bbaef4` 2026-06-15 — Roadmap: mark token counter, delete-confirm, thumbnails done
 - `f3cf0a3` 2026-06-15 — Fix: emit token usage from the build loop too (not just plan)
-- `2359175` 2026-06-15 — Project thumbnails in the recent-projects list
 <!-- COMMITLOG:END -->

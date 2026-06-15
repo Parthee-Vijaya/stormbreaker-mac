@@ -109,9 +109,15 @@ final class AppModel {
     var isCapturing = false
     @ObservationIgnored private var captureTask: Task<Void, Never>?
 
-    // Rename the current project (from the project menu)
+    // Rename a project (from the project menu or the projects sidebar). When
+    // `projectToRename` is nil the dialog renames the current project.
     var showRenameDialog = false
     var renameText = ""
+    var projectToRename: Project?
+
+    // Projects sidebar (toggleable in the working view): switch / rename / delete
+    // one or more projects without leaving the current build.
+    var showProjectSidebar = false
 
     // ⌘K command palette
     var showCommandPalette = false
@@ -389,17 +395,25 @@ final class AppModel {
         activate(project, freshState: false)
     }
 
-    func deleteProject(_ project: Project) {
-        guard !isBusy else { return }
-        projects.removeAll { $0.id == project.id }
-        ProjectStore.deleteDir(for: project)
+    func deleteProject(_ project: Project) { deleteProjects([project]) }
+
+    /// Delete one or more projects (their code, chat and history) permanently.
+    /// Handles deleting the current project — re-activates a surviving one (or a
+    /// fresh Untitled if none remain) — so the sidebar's bulk delete is safe.
+    func deleteProjects(_ toDelete: [Project]) {
+        guard !isBusy, !toDelete.isEmpty else { return }
+        let ids = Set(toDelete.map(\.id))
+        let deletingCurrent = ids.contains(currentProject.id)
+        projects.removeAll { ids.contains($0.id) }
+        for project in toDelete { ProjectStore.deleteDir(for: project) }
         if projects.isEmpty {
             projects = [ProjectStore.makeProject(name: "Untitled")]
         }
         ProjectStore.saveProjects(projects)
-        if currentProject.id == project.id {
-            activate(projects[0], freshState: false)
-        }
+        if deletingCurrent { activate(projects[0], freshState: false) }
+        showToast(toDelete.count == 1
+            ? "Slettede “\(displayName(toDelete[0]))”"
+            : "Slettede \(toDelete.count) projekter")
     }
 
     private func activate(_ project: Project, freshState: Bool) {
@@ -466,11 +480,36 @@ final class AppModel {
     }
 
     /// Manual rename from the project menu's "Omdøb…". No-op on an empty name.
-    func renameCurrentProject(to name: String) {
+    func renameCurrentProject(to name: String) { renameProject(currentProject, to: name) }
+
+    /// Rename ANY project (current or an old one from the sidebar). No-op on an
+    /// empty name. Keeps `currentProject` and the `projects` list in sync.
+    func renameProject(_ project: Project, to name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        renameCurrent(to: trimmed)
+        if project.id == currentProject.id { currentProject.name = trimmed }
+        if let index = projects.firstIndex(where: { $0.id == project.id }) {
+            projects[index].name = trimmed
+        }
+        ProjectStore.saveProjects(projects)
         showRenameDialog = false
+        projectToRename = nil
+    }
+
+    /// Open the rename dialog targeting a specific project.
+    func beginRename(_ project: Project) {
+        projectToRename = project
+        renameText = displayName(project)
+        showRenameDialog = true
+    }
+
+    /// Commit the rename dialog to whichever project it targets (the explicit
+    /// `projectToRename`, else the current project).
+    func commitRename() { renameProject(projectToRename ?? currentProject, to: renameText) }
+
+    /// A project's display title, with the Untitled fallback.
+    func displayName(_ project: Project) -> String {
+        project.name.isEmpty ? "Untitled" : project.name
     }
 
     /// A short, tidy project title from the first prompt: strips a leading
