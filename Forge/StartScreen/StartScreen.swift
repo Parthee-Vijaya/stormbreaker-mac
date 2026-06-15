@@ -35,8 +35,8 @@ struct StartScreen: View {
 
     private func sidebar(_ model: AppModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Circle().fill(Theme.accent).frame(width: 9, height: 9)
+            HStack(spacing: 9) {
+                ForgeBadge(size: 22)
                 Text("Forge").font(Theme.wordmark(18)).foregroundStyle(Theme.ink)
             }
             .padding(.horizontal, 14).padding(.top, 16).padding(.bottom, 12)
