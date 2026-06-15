@@ -123,6 +123,18 @@ public enum SystemPrompt {
             shadcn here: build UI with Tailwind utility classes in the markup. If you need icons, add \
             `lucide-svelte` (not lucide-react). Keep `src/main.ts` and config files as-is.
             """
+        case "nextjs":
+            return """
+            IMPORTANT FRAMEWORK OVERRIDE — this project is **Next.js 15 (App Router) + Tailwind v4**, \
+            NOT a plain Vite React app. There is no `index.html` and no `src/`; the entry file is \
+            `app/page.tsx` and the root layout is `app/layout.tsx`. Routes are folders under `app/` \
+            (e.g. `app/about/page.tsx`). Components are **Server Components by default** — add the \
+            `"use client"` directive at the very top of any file that uses hooks (useState/useEffect), \
+            event handlers, or browser APIs. Style with Tailwind utility classes; global CSS is in \
+            `app/globals.css` (which already `@import "tailwindcss"`). Use `next/link` for navigation \
+            and `next/image` for images. Icons: `lucide-react`. Keep the config files (next.config.mjs, \
+            postcss.config.mjs, tsconfig.json, next-env.d.ts) as-is.
+            """
         case "vue":
             return """
             IMPORTANT FRAMEWORK OVERRIDE — this project is **Vue 3 + Vite + Tailwind v4**, NOT React. \

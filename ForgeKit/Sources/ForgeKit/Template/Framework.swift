@@ -1,10 +1,13 @@
 import Foundation
 
-/// The frontend framework a project is scaffolded with. All three are Vite-based,
-/// so the dev server, ready-detection and `npm run dev` / `vite build` flow are
-/// identical — only the template files and the system-prompt guidance differ.
+/// The frontend framework a project is scaffolded with. React/Svelte/Vue are all
+/// Vite-based (identical dev server, ready-detection and `npm run dev` flow) — only
+/// the template files and the system-prompt guidance differ. Next.js (B7) is NOT
+/// Vite: it runs `next dev` (port 3000) and uses the app router, but it prints the
+/// same "Local: http://localhost:…" ready line, so the existing detector + the
+/// generic `npm run dev` path carry it without dev-server changes.
 public enum Framework: String, Sendable, CaseIterable {
-    case react, svelte, vue
+    case react, svelte, vue, nextjs
 
     public init(id: String) { self = Framework(rawValue: id) ?? .react }
 
@@ -13,6 +16,7 @@ public enum Framework: String, Sendable, CaseIterable {
         case .react: "React"
         case .svelte: "Svelte"
         case .vue: "Vue"
+        case .nextjs: "Next.js"
         }
     }
 
@@ -21,6 +25,7 @@ public enum Framework: String, Sendable, CaseIterable {
         case .react: .viteReactTailwind
         case .svelte: .viteSvelteTailwind
         case .vue: .viteVueTailwind
+        case .nextjs: .nextjsTailwind
         }
     }
 }

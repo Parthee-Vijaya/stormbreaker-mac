@@ -154,8 +154,9 @@ struct StartScreen: View {
                         Text("React").tag("react")
                         Text("Svelte").tag("svelte")
                         Text("Vue").tag("vue")
+                        Text("Next.js").tag("nextjs")
                     }
-                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 260)
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320)
                 }
                 .tourAnchor(.framework)
 
