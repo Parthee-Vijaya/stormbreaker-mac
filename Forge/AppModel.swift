@@ -480,6 +480,7 @@ final class AppModel {
     }
 
     private func persistCurrentChat() {
+        flushStreamBuffers()   // A14: ensure buffered tokens/logs land before saving
         ProjectStore.saveChat(messages, for: currentProject)
         ProjectStore.saveLogs(serverLog, for: currentProject)
         currentProject.updatedAt = Date()
@@ -1920,14 +1921,59 @@ final class AppModel {
 
     // MARK: - Helpers
 
+    // A14: coalesce high-frequency stream updates (chat tokens + dev-server log
+    // lines) and flush them ~20×/s instead of per-token, so the main thread stays
+    // smooth on fast local streams. Buffers are also flushed at every chat save.
+    @ObservationIgnored private var pendingText: [Int: String] = [:]
+    @ObservationIgnored private var pendingReasoning: [Int: String] = [:]
+    @ObservationIgnored private var pendingLog: [LogLine] = []
+    @ObservationIgnored private var streamFlushScheduled = false
+
     private func appendAssistant(_ index: Int, _ text: String) {
-        guard messages.indices.contains(index) else { return }
-        messages[index].text += text
+        pendingText[index, default: ""] += text
+        scheduleStreamFlush()
     }
 
     private func appendReasoning(_ index: Int, _ text: String) {
-        guard messages.indices.contains(index) else { return }
-        messages[index].reasoning += text
+        pendingReasoning[index, default: ""] += text
+        scheduleStreamFlush()
+    }
+
+    private func enqueueLog(_ line: LogLine) {
+        pendingLog.append(line)
+        scheduleStreamFlush()
+    }
+
+    private func scheduleStreamFlush() {
+        guard !streamFlushScheduled else { return }
+        streamFlushScheduled = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(50))
+            streamFlushScheduled = false
+            flushStreamBuffers()
+        }
+    }
+
+    /// Drain the coalesced stream buffers into the observable model. Runs on a
+    /// ~50ms timer while streaming and at every chat save, so nothing is lost.
+    func flushStreamBuffers() {
+        if !pendingText.isEmpty {
+            for (index, text) in pendingText where messages.indices.contains(index) {
+                messages[index].text += text
+            }
+            pendingText.removeAll(keepingCapacity: true)
+        }
+        if !pendingReasoning.isEmpty {
+            for (index, text) in pendingReasoning where messages.indices.contains(index) {
+                messages[index].reasoning += text
+            }
+            pendingReasoning.removeAll(keepingCapacity: true)
+        }
+        if !pendingLog.isEmpty {
+            serverLog.append(contentsOf: pendingLog)
+            if serverLog.count > 500 { serverLog.removeFirst(serverLog.count - 500) }
+            pendingLog.removeAll(keepingCapacity: true)
+        }
     }
 
     private func addFile(_ path: String, to index: Int) {
@@ -1968,8 +2014,7 @@ final class AppModel {
                 guard let self else { break }
                 switch event {
                 case .log(let line):
-                    self.serverLog.append(line)
-                    if self.serverLog.count > 500 { self.serverLog.removeFirst(self.serverLog.count - 500) }
+                    self.enqueueLog(line)   // A14: coalesced flush, see flushStreamBuffers()
                 case .ready(let url):
                     self.previewURL = url
                     self.serverPhase = .running(url: url)
