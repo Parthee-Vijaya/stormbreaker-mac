@@ -5,7 +5,7 @@
 > Du skriver en prompt → en AI-agent skriver et React+Vite+TS+Tailwind-projekt til disk
 > → Forge kører det → preview opdaterer via HMR.
 
-- **Sidst opdateret:** 2026-06-16
+- **Sidst opdateret:** 2026-06-17
 - **Status:** Walking skeleton + **Lovable-stil UI** KOMPLET og verificeret i GUI. Empty-state hero → split-layout når der bygges; synlig tekst (tvunget lyst tema), fil-chips pr. besked, preview-toolbar (device-toggles/URL/refresh/åbn-i-browser), HMR-edits. **Multi-model**: auto-discovery af Ollama + LM Studio (verificeret live). **Kode-visning + fil-træ** (redigerbar editor → HMR) og **multi-projekt + historik** (skift/opret/slet, persistent pr. projekt) — begge verificeret live. **nanocoder-køreplan leveret**: `forge` CLI, bruger-skills (CLI+GUI), og MCP tool-calling — agenten kan kalde eksterne MCP-værktøjer midt i et build (e2e-verificeret) + eksterne agenter kan drive Forge via `forge-mcp`. Alle 112 ForgeKit-tests grønne; Mac-app + CLI bygger.
 - **Branch:** main · committed: skeleton + Lovable-UI + LM Studio-discovery (intet remote endnu)
 
@@ -83,6 +83,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `72185c0` 2026-06-16 — docs(handoff): opdater commit-log
 - `ca52861` 2026-06-16 — feat(model): tilføj OpenRouter som udbyder
 - `8f56ddb` 2026-06-16 — docs(handoff): opdater commit-log
 - `3af345b` 2026-06-16 — docs(roadmap): hele P1+P2-backlog leveret
@@ -102,5 +103,4 @@ ollama list | grep qwen2.5-coder
 - `17b3b41` 2026-06-16 — feat(B19): ForgeCompanion — iOS/iPadOS companion-app
 - `eabb807` 2026-06-16 — fix(A5): also drop esbuild 'Failed to scan for dependencies' header
 - `b6915d7` 2026-06-16 — fix(parser): </forgeArtifact> implicitly closes an unclosed file body
-- `7725f7e` 2026-06-16 — fix: start dev-server even when the model omits </forgeArtifact>
 <!-- COMMITLOG:END -->

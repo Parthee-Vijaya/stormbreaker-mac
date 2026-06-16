@@ -43,6 +43,7 @@ struct ForgeConfig: Codable {
     var framework: String?
     var baseURL: String?
     var apiKey: String?
+    var verbose: Bool?
 
     static func load() -> ForgeConfig {
         let path = configDir().appendingPathComponent("config.json")
@@ -165,13 +166,47 @@ func makeDeps(_ engine: Engine, mode: AgentLoop.Mode) -> AgentLoop.Dependencies 
 /// Run one turn, streaming the engine's events to the terminal. Returns the
 /// assistant text (for REPL history), the preview URL, and whether it reached clean.
 @discardableResult
-func runTurn(_ engine: Engine, prompt: String, history: [ChatMessage], mode: AgentLoop.Mode)
+// MARK: - Metrics (verbose / observability)
+
+func fmtTTFT(_ s: Double?) -> String { s.map { String(format: "%.2fs", $0) } ?? "—" }
+func fmtRate(_ r: Double) -> String { String(format: "%.0f tok/s", r) }
+func fmtSecs(_ s: Double) -> String { String(format: "%.1fs", s) }
+
+/// Session-wide accumulator across every model call in this `forge` run.
+final class MetricsAccumulator {
+    var calls = 0
+    var promptTokens = 0
+    var completionTokens = 0
+    var totalSeconds = 0.0
+    func add(_ m: GenerationMetrics) {
+        calls += 1
+        promptTokens += m.promptTokens
+        completionTokens += m.completionTokens
+        totalSeconds += m.totalSeconds
+    }
+    var totalTokens: Int { promptTokens + completionTokens }
+    var tokensPerSecond: Double { totalSeconds > 0 ? Double(completionTokens) / totalSeconds : 0 }
+}
+
+func printSession(_ m: MetricsAccumulator) {
+    guard m.calls > 0 else { return }
+    say(bold("Session: ") + "\(m.calls) kald · \(m.totalTokens) tok (\(m.promptTokens)→\(m.completionTokens)) · "
+        + "\(fmtRate(m.tokensPerSecond)) · \(fmtSecs(m.totalSeconds))")
+}
+
+func runTurn(_ engine: Engine, prompt: String, history: [ChatMessage], mode: AgentLoop.Mode,
+             verbose: Bool = false, session: MetricsAccumulator? = nil)
     async -> (assistant: String, preview: URL?, clean: Bool)
 {
     let loop = AgentLoop(makeDeps(engine, mode: mode))
     var assistant = ""
     var preview: URL?
     var clean = false
+    // Per-message (besked) accumulation — a turn may issue several calls (read/tool
+    // rounds + repairs).
+    var turnCalls = 0, turnPrompt = 0, turnCompletion = 0
+    var turnSeconds = 0.0
+    var turnFirstTTFT: Double?
     for await event in loop.run(userPrompt: prompt, history: history, mode: mode) {
         switch event {
         case .state(let s):
@@ -200,8 +235,23 @@ func runTurn(_ engine: Engine, prompt: String, history: [ChatMessage], mode: Age
                 }
             }
             assistant += t
+        case .metrics(let m):
+            turnCalls += 1
+            turnPrompt += m.promptTokens; turnCompletion += m.completionTokens; turnSeconds += m.totalSeconds
+            if turnFirstTTFT == nil { turnFirstTTFT = m.timeToFirstTokenSeconds }
+            session?.add(m)
+            if verbose {
+                let n = session?.calls ?? turnCalls
+                say("  " + dim("↳ kald \(n): \(m.totalTokens) tok (\(m.promptTokens)→\(m.completionTokens)) · "
+                    + "TTFT \(fmtTTFT(m.timeToFirstTokenSeconds)) · \(fmtRate(m.tokensPerSecond)) · \(fmtSecs(m.totalSeconds))"))
+            }
         case .reasoning, .fileWriting, .fileChunk, .usage: break
         }
+    }
+    if turnCalls > 0 {
+        let rate = turnSeconds > 0 ? Double(turnCompletion) / turnSeconds : 0
+        say("  " + dim("Σ besked: \(turnCalls) kald · \(turnPrompt + turnCompletion) tok (\(turnPrompt)→\(turnCompletion)) · "
+            + "TTFT \(fmtTTFT(turnFirstTTFT)) · \(fmtRate(rate)) · \(fmtSecs(turnSeconds))"))
     }
     if mode == .plan { say("") }
     return (assistant, preview, clean)
@@ -258,6 +308,7 @@ let helpText = """
   --plan               kun planlæg (ingen filer skrives)
   --no-serve           afslut efter build i stedet for at holde preview kørende (CI)
   --plain              ingen farver/ANSI (CI-venligt)
+  --verbose            vis metrics pr. kald (tokens, TTFT, tok/s) + session-total
 
 Config: \(configDir().appendingPathComponent("config.json").path)
 """
@@ -305,7 +356,11 @@ func cmdBuild(_ args: Args, _ cfg: ForgeConfig) async {
     info("model: \(config.displayName) (\(config.source.rawValue)) · framework: \(framework.displayName)")
     do {
         let engine = try await prepareEngine(dir: dir, framework: framework, config: config)
-        let result = await runTurn(engine, prompt: prompt, history: [], mode: mode)
+        let session = MetricsAccumulator()
+        let verbose = args.flag("verbose") || cfg.verbose == true
+        let result = await runTurn(engine, prompt: prompt, history: [], mode: mode,
+                                   verbose: verbose, session: session)
+        printSession(session)
         if mode == .build, result.preview != nil, !args.flag("no-serve") {
             await waitUntilInterrupt(engine)
         } else {
@@ -324,6 +379,8 @@ func cmdChat(_ args: Args, _ cfg: ForgeConfig) async {
     catch { fail("\(error)") }
 
     say(dim("Skriv hvad du vil bygge. ':plan <prompt>' for kun at planlægge · ':quit' for at stoppe."))
+    let session = MetricsAccumulator()
+    let verbose = args.flag("verbose") || cfg.verbose == true
     var history: [ChatMessage] = []
     while true {
         FileHandle.standardOutput.write(Data((bold("\nforge› ")).utf8))
@@ -352,13 +409,15 @@ func cmdChat(_ args: Args, _ cfg: ForgeConfig) async {
             info("skill: \(skill.name)")
         }
 
-        let result = await runTurn(engine, prompt: prompt, history: history, mode: mode)
+        let result = await runTurn(engine, prompt: prompt, history: history, mode: mode,
+                                   verbose: verbose, session: session)
         if mode == .build {
             history.append(ChatMessage(role: .user, content: prompt))
             history.append(ChatMessage(role: .assistant, content: result.assistant))
         }
     }
     await engine.devServer.shutdown()
+    printSession(session)
     say(dim("\nFarvel."))
 }
 

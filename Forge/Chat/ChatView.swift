@@ -110,7 +110,7 @@ struct ChatView: View {
                 .foregroundStyle(Theme.inkSoft)
                 .padding(.horizontal, 9).padding(.vertical, 5)
                 .background(Theme.fill, in: Capsule())
-                .help("Tokens — denne tur: \(AppModel.formatTokens(model.turnTokens)) · projekt i alt: \(AppModel.formatTokens(model.projectTokens))")
+                .help(model.tokenTooltip)
             }
             ModelPicker(model: model)
             Button { model.askMode.toggle() } label: {   // B10: read-only "ask about the code"

@@ -84,6 +84,11 @@ private struct StatusBar: View {
             .help("Aktiv model")
             if model.projectTokens > 0 {
                 segment(icon: "number", text: AppModel.formatTokens(model.projectTokens))
+                    .help(model.tokenTooltip)
+            }
+            if model.preferences.verboseMetrics, let line = model.lastMetricsLine {
+                segment(icon: "speedometer", text: line)
+                    .help(model.tokenTooltip)
             }
         }
         .font(.system(size: 11))

@@ -94,14 +94,25 @@ public actor AgentLoop {
                 images: images)
             continuation.yield(.state(.planning))
             let splitter = ReasoningSplitter()
+            let clock = ContinuousClock()
+            let started = clock.now
+            var firstTokenAt: ContinuousClock.Instant?
             for try await event in deps.provider.stream(messages: messages, options: deps.options) {
                 try Task.checkCancellation()
                 let pieces: [ReasoningSplitter.Piece]
                 switch event {
-                case .reasoning(let r): continuation.yield(.reasoning(r)); continue
-                case .token(let token): pieces = splitter.consume(token)
+                case .reasoning(let r):
+                    if firstTokenAt == nil { firstTokenAt = clock.now }
+                    continuation.yield(.reasoning(r)); continue
+                case .token(let token):
+                    if firstTokenAt == nil { firstTokenAt = clock.now }
+                    pieces = splitter.consume(token)
                 case .done(_, let pt, let ct):
                     if let pt, let ct { continuation.yield(.usage(promptTokens: pt, completionTokens: ct)) }
+                    continuation.yield(.metrics(GenerationMetrics(
+                        promptTokens: pt ?? 0, completionTokens: ct ?? 0,
+                        timeToFirstTokenSeconds: firstTokenAt.map { started.duration(to: $0).seconds },
+                        totalSeconds: started.duration(to: clock.now).seconds)))
                     continue
                 }
                 for piece in pieces {
@@ -263,14 +274,25 @@ public actor AgentLoop {
         // Route split pieces: reasoning to the UI, visible text through the
         // artifact parser. `raw` holds only the visible text (no <think>), so the
         // repair history stays clean.
+        let clock = ContinuousClock()
+        let started = clock.now
+        var firstTokenAt: ContinuousClock.Instant?
         for try await event in deps.provider.stream(messages: messages, options: deps.options) {
             try Task.checkCancellation()
             let pieces: [ReasoningSplitter.Piece]
             switch event {
-            case .reasoning(let r): continuation.yield(.reasoning(r)); continue
-            case .token(let token): pieces = splitter.consume(token)
+            case .reasoning(let r):
+                if firstTokenAt == nil { firstTokenAt = clock.now }
+                continuation.yield(.reasoning(r)); continue
+            case .token(let token):
+                if firstTokenAt == nil { firstTokenAt = clock.now }
+                pieces = splitter.consume(token)
             case .done(_, let pt, let ct):
                 if let pt, let ct { continuation.yield(.usage(promptTokens: pt, completionTokens: ct)) }
+                continuation.yield(.metrics(GenerationMetrics(
+                    promptTokens: pt ?? 0, completionTokens: ct ?? 0,
+                    timeToFirstTokenSeconds: firstTokenAt.map { started.duration(to: $0).seconds },
+                    totalSeconds: started.duration(to: clock.now).seconds)))
                 continue
             }
             for piece in pieces {

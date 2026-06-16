@@ -53,6 +53,10 @@ struct Preferences: Codable, Equatable {
     /// Deploy target: "vercel" (default) or "netlify".
     var deployTarget = "vercel"
 
+    /// Verbose metrics: show per-call tokens, time-to-first-token and throughput
+    /// (tok/s) in the status bar + token-pill tooltip.
+    var verboseMetrics = false
+
     static let defaultRules = """
     # Project rules
 
@@ -79,7 +83,7 @@ extension Preferences {
         case planModelID, buildModelID, copyModelID, autoCopyPass
         case learningMode, learnedLessons
         case preferredName, askedPreferredName
-        case appearance, deployTarget
+        case appearance, deployTarget, verboseMetrics
     }
 
     init(from decoder: Decoder) throws {
@@ -107,5 +111,6 @@ extension Preferences {
         askedPreferredName = (try? c.decode(Bool.self, forKey: .askedPreferredName)) ?? askedPreferredName
         appearance = (try? c.decode(String.self, forKey: .appearance)) ?? appearance
         deployTarget = (try? c.decode(String.self, forKey: .deployTarget)) ?? deployTarget
+        verboseMetrics = (try? c.decode(Bool.self, forKey: .verboseMetrics)) ?? verboseMetrics
     }
 }

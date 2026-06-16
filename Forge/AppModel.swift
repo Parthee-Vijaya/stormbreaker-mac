@@ -221,6 +221,24 @@ final class AppModel {
     // Token usage (session-only): the most recent turn + this project's running total
     var turnTokens = 0
     var projectTokens = 0
+    // Verbose metrics: app-session totals + the most recent call's TTFT / throughput
+    var sessionTokens = 0
+    var sessionCalls = 0
+    var lastMetrics: GenerationMetrics?
+    /// Compact "78 tok/s · TTFT 0.42s" for the most recent call (nil until one runs).
+    var lastMetricsLine: String? {
+        guard let m = lastMetrics else { return nil }
+        let ttft = m.timeToFirstTokenSeconds.map { String(format: "TTFT %.2fs", $0) } ?? "TTFT —"
+        return String(format: "%.0f tok/s · ", m.tokensPerSecond) + ttft
+    }
+    /// Full token breakdown for the token-pill tooltip (turn · project · session).
+    var tokenTooltip: String {
+        var s = "Tokens — denne tur: \(Self.formatTokens(turnTokens))"
+            + " · projekt: \(Self.formatTokens(projectTokens))"
+            + " · session: \(Self.formatTokens(sessionTokens)) (\(sessionCalls) kald)"
+        if let line = lastMetricsLine { s += "\nSidste kald: \(line)" }
+        return s
+    }
 
     // Model selection
     var availableModels: [ModelConfig] = []
@@ -1812,7 +1830,10 @@ final class AppModel {
                     case .token(let t): appendAssistant(idx, t)
                     case .reasoning(let r): appendReasoning(idx, r)
                     case .done(_, let pt, let ct):
-                        if let pt, let ct { turnTokens += pt + ct; projectTokens += pt + ct }
+                        if let pt, let ct {
+                            turnTokens += pt + ct; projectTokens += pt + ct
+                            sessionTokens += pt + ct; sessionCalls += 1
+                        }
                     }
                 }
             } catch {
@@ -1962,6 +1983,10 @@ final class AppModel {
             case .usage(let pt, let ct):
                 turnTokens += pt + ct
                 projectTokens += pt + ct
+            case .metrics(let m):
+                lastMetrics = m
+                sessionTokens += m.totalTokens
+                sessionCalls += 1
             }
         }
         endStreaming()
@@ -2029,6 +2054,10 @@ final class AppModel {
             case .usage(let pt, let ct):
                 turnTokens += pt + ct
                 projectTokens += pt + ct
+            case .metrics(let m):
+                lastMetrics = m
+                sessionTokens += m.totalTokens
+                sessionCalls += 1
             default: break
             }
         }

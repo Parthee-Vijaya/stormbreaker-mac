@@ -153,6 +153,9 @@ struct SettingsView: View {
                 Toggle("Funktionel røgtest af preview", isOn: $model.preferences.functionalSmokeTest)
                 Text("Når en build ellers er ren, afprøver Forge automatisk den kørende app (skriver i felter, klikker på knapper) i en skjult fane for at fange fejl der først opstår ved interaktion. Tilføjer et par sekunder ved den rene build.")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
+                Toggle("Verbose metrics", isOn: $model.preferences.verboseMetrics)
+                Text("Viser hastighed (tokens/sek) og tid-til-første-token i statuslinjen, og en fuld token-oversigt (tur · projekt · session) i tooltippet på token-pillen.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
             }
 
             Section {
