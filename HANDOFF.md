@@ -83,6 +83,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `7f822f5` 2026-06-17 — feat(metrics): verbose mode — tokens, TTFT, tok/s pr. kald/besked/session
 - `72185c0` 2026-06-16 — docs(handoff): opdater commit-log
 - `ca52861` 2026-06-16 — feat(model): tilføj OpenRouter som udbyder
 - `8f56ddb` 2026-06-16 — docs(handoff): opdater commit-log
@@ -102,5 +103,4 @@ ollama list | grep qwen2.5-coder
 - `edab364` 2026-06-16 — fix: surface human message from model HTTP errors (not raw JSON)
 - `17b3b41` 2026-06-16 — feat(B19): ForgeCompanion — iOS/iPadOS companion-app
 - `eabb807` 2026-06-16 — fix(A5): also drop esbuild 'Failed to scan for dependencies' header
-- `b6915d7` 2026-06-16 — fix(parser): </forgeArtifact> implicitly closes an unclosed file body
 <!-- COMMITLOG:END -->
