@@ -224,6 +224,7 @@ let helpText = """
   forge build "<prompt>" [valg]         Byg én gang; holder preview kørende
   forge chat [valg]                     Interaktiv session (byg videre i samme projekt)
   forge skills [--project DIR]          Vis tilgængelige skills (presets)
+  forge mcp [--project DIR]             Start MCP-servere fra .forge/.mcp.json + vis værktøjer
 
 \(bold("VALG"))
   --project DIR        Projektmappe (default: ./<navn> eller ./<slug>)
@@ -352,6 +353,30 @@ func cmdSkills(_ args: Args, _ cfg: ForgeConfig) {
     say(dim("\nBrug:  forge build --skill <id> [\"ekstra tekst\"]   ·   i chat:  :skill <id> [tekst]"))
 }
 
+func cmdMCP(_ args: Args, _ cfg: ForgeConfig) async {
+    let dir = args.option("project").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+        ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+    let configs = MCPManager.loadConfig(projectRoot: dir)
+    guard !configs.isEmpty else {
+        say(dim("Ingen MCP-servere konfigureret i \(dir.appendingPathComponent(".forge/.mcp.json").path). Eksempel:"))
+        say(dim(#"  {"mcpServers": {"fs": {"command": "npx", "args": ["-y","@modelcontextprotocol/server-filesystem","."]}}}"#))
+        return
+    }
+    info("starter \(configs.count) MCP-server(e)…")
+    let manager = MCPManager()
+    await manager.start(projectRoot: dir)
+    let tools = manager.availableTools
+    if tools.isEmpty {
+        say(red("Ingen værktøjer fundet — kunne en server ikke starte? (tjek command/args)"))
+    } else {
+        say(bold("MCP-værktøjer") + dim("  (\(tools.count))"))
+        for t in tools {
+            say("  " + green("\(t.server)/\(t.name)") + (t.description.isEmpty ? "" : dim(" · \(t.description)")))
+        }
+    }
+    manager.shutdownAll()
+}
+
 // MARK: - Dispatch
 
 let argv = Array(CommandLine.arguments.dropFirst())
@@ -369,6 +394,7 @@ case "new":    await cmdNew(rest, cfg)
 case "build":  await cmdBuild(rest, cfg)
 case "chat":   await cmdChat(rest, cfg)
 case "skills": cmdSkills(rest, cfg)
+case "mcp":    await cmdMCP(rest, cfg)
 default:
     // `forge "<prompt>"` is shorthand for `forge build "<prompt>"`.
     if command.hasPrefix("--") { fail("ukendt kommando. Prøv: forge --help") }
