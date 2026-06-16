@@ -197,8 +197,17 @@ public actor AgentLoop {
                 }
                 lastSignature = report.signature
                 continuation.yield(.state(.repairing(attempt: attempt)))
+                // A11: fetch the current contents of the failing files (max 3, deduped)
+                // so the repair turn edits the real code instead of guessing.
+                var failFiles: [(path: String, contents: String?)] = []
+                var seenPaths = Set<String>()
+                for item in report.items {
+                    guard let path = item.file, seenPaths.insert(path).inserted else { continue }
+                    failFiles.append((path, await deps.readFile(path)))
+                    if failFiles.count >= 3 { break }
+                }
                 messages.append(ChatMessage(role: .assistant, content: rawAssistant))
-                messages.append(MessageBuilder().errorTurn(report))
+                messages.append(MessageBuilder().errorTurn(report, files: failFiles))
             }
         } catch is CancellationError {
             // caller terminated the stream

@@ -50,13 +50,22 @@ public struct MessageBuilder: Sendable {
     }
 
     /// A follow-up user turn that feeds back the errors for self-correction.
-    public func errorTurn(_ report: ErrorReport) -> ChatMessage {
-        let body = """
+    /// When `files` is supplied (A11), the current contents of the failing files are
+    /// inlined so the model repairs against the real code instead of guessing.
+    public func errorTurn(_ report: ErrorReport, files: [(path: String, contents: String?)] = []) -> ChatMessage {
+        var body = """
         The app has errors. Fix the root cause with the smallest correct edit, then re-emit the \
         affected file(s). Do not restart the dev server.
 
         \(report.formatted())
         """
+        let present = files.filter { $0.contents != nil }
+        if !present.isEmpty {
+            body += "\n\nCurrent contents of the affected file(s) — edit these, don't recreate from scratch:\n\n"
+            for file in present {
+                body += "<file path=\"\(file.path)\">\n\(file.contents ?? "")\n</file>\n\n"
+            }
+        }
         return ChatMessage(role: .user, content: body)
     }
 }

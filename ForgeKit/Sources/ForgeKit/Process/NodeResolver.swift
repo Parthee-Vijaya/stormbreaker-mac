@@ -15,8 +15,20 @@ public struct NodeResolver: Sendable {
     /// `UserDefaults` key holding a manual absolute path to `node` (optional).
     public static let overrideDefaultsKey = "ForgeNodePath"
 
+    /// A13: `UserDefaults` key prefix for the cached resolved path per tool, so the
+    /// ~100–300 ms login-shell probe runs once instead of on every `start`.
+    public static let cacheDefaultsKeyPrefix = "ForgeNodeResolvedPath."
+
     public static let shared = NodeResolver()
     public init() {}
+
+    /// Clear the cached tool paths (A13). Call when the user changes their Node
+    /// setup (new nvm/volta version, manual override) so the next resolve re-probes.
+    public static func clearCache() {
+        for tool in Tool.allCases {
+            UserDefaults.standard.removeObject(forKey: cacheDefaultsKeyPrefix + tool.rawValue)
+        }
+    }
 
     /// Resolve one tool to its absolute executable URL, or throw with the full
     /// list of paths searched (so the UI can tell the user exactly where Forge
@@ -27,10 +39,18 @@ public struct NodeResolver: Sendable {
            FileManager.default.isExecutableFile(atPath: override) {
             return URL(fileURLWithPath: override)
         }
+        // A13: a cached path skips the login-shell probe — but only while it still
+        // points at an executable (handles a removed/upgraded Node install).
+        let cacheKey = Self.cacheDefaultsKeyPrefix + tool.rawValue
+        if let cached = UserDefaults.standard.string(forKey: cacheKey),
+           FileManager.default.isExecutableFile(atPath: cached) {
+            return URL(fileURLWithPath: cached)
+        }
         let dirs = searchDirectories()
         for dir in dirs {
             let candidate = dir.appendingPathComponent(tool.rawValue)
             if FileManager.default.isExecutableFile(atPath: candidate.path) {
+                UserDefaults.standard.set(candidate.path, forKey: cacheKey)
                 return candidate
             }
         }

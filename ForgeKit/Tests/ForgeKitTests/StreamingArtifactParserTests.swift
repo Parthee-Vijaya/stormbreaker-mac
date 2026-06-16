@@ -297,4 +297,49 @@ final class StreamingArtifactParserTests: XCTestCase {
             XCTAssertEqual(written.first?.1, "", "chunk \(chunk)")
         }
     }
+
+    /// Randomized fuzz: feed adversarial strings built from delimiter-ish fragments
+    /// at random chunk sizes. The parser must never crash, hang, or fail to
+    /// terminate — output correctness isn't asserted, only robustness.
+    func testFuzzRandomInputNeverCrashes() {
+        let fragments = ["<forgeArtifact", "</forgeArtifact>", "<forgeAction", "</forgeAction>",
+                         " type=\"file\"", " filePath=\"a.tsx\"", "type=\"mcp\"", "<", ">", "/", "\"",
+                         "\n", "  ", "x", "<<", "</", "Artifact", "forge", "id=", "</div>", "{x<y}"]
+        var rng = SeededRNG(seed: 0xF0F0_1234)
+        for _ in 0..<400 {
+            let count = Int.random(in: 0...60, using: &rng)
+            let s = (0..<count).map { _ in fragments.randomElement(using: &rng)! }.joined()
+            let events = parse(s, chunkSize: Int.random(in: 1...11, using: &rng))
+            // The contract: parse returns (no hang/crash). files() must also not crash.
+            _ = files(events)
+        }
+    }
+
+    /// A very large file body (~230 KB) is preserved byte-for-byte.
+    func testHugeFileBodyPreserved() {
+        let line = "const x = <Foo a={b < c} bar=\"baz\" />;\n"
+        let body = String(repeating: line, count: 6000)
+        let input = "<forgeArtifact id=\"x\" title=\"X\"><forgeAction type=\"file\" filePath=\"src/Big.tsx\">\(body)</forgeAction></forgeArtifact>"
+        // The parser trims surrounding whitespace from a file body; compare trimmed
+        // (this still catches any mid-content truncation in a 230 KB stream).
+        let expected = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        for chunk in [4096, Int.max] {
+            let written = files(parse(input, chunkSize: chunk))
+            XCTAssertEqual(written.count, 1, "chunk \(chunk)")
+            XCTAssertEqual(written.first?.1.trimmingCharacters(in: .whitespacesAndNewlines), expected,
+                           "huge body preserved (chunk \(chunk))")
+        }
+    }
+}
+
+/// Deterministic xorshift PRNG so fuzz runs are reproducible across machines (A6).
+private struct SeededRNG: RandomNumberGenerator {
+    private var state: UInt64
+    init(seed: UInt64) { state = seed == 0 ? 0xdead_beef : seed }
+    mutating func next() -> UInt64 {
+        state ^= state << 13
+        state ^= state >> 7
+        state ^= state << 17
+        return state
+    }
 }
