@@ -223,10 +223,12 @@ let helpText = """
   forge new <navn> [--framework F]      Scaffold et tomt projekt (ingen model)
   forge build "<prompt>" [valg]         Byg én gang; holder preview kørende
   forge chat [valg]                     Interaktiv session (byg videre i samme projekt)
+  forge skills [--project DIR]          Vis tilgængelige skills (presets)
 
 \(bold("VALG"))
   --project DIR        Projektmappe (default: ./<navn> eller ./<slug>)
   --framework F        react (default) · svelte · vue · nextjs
+  --skill <id>         brug en skill som prompt (se 'forge skills'); positional = ekstra input
   --provider P         lmStudio (default) · ollama · openai · anthropic · gemini · nvidia
   --model M            model-id (default: qwen/qwen3.6-35b-a3b)
   --base-url URL       eget OpenAI-kompatibelt endpoint
@@ -251,13 +253,33 @@ func cmdNew(_ args: Args, _ cfg: ForgeConfig) async {
 }
 
 func cmdBuild(_ args: Args, _ cfg: ForgeConfig) async {
-    guard let prompt = args.positionals.first, !prompt.isEmpty else {
-        fail("brug: forge build \"<prompt>\" [valg]")
-    }
     let framework = Framework(id: args.option("framework") ?? cfg.framework ?? "react")
-    let mode: AgentLoop.Mode = args.flag("plan") ? .plan : .build
-    let dir = resolveProjectDir(args, defaultName: slug(prompt))
     let config = makeModelConfig(args, cfg)
+
+    // Prompt + mode come from either a --skill (a named preset) or a positional prompt.
+    let prompt: String
+    let mode: AgentLoop.Mode
+    let defaultName: String
+    if let skillID = args.option("skill") {
+        let projForSkills = args.option("project").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+        let skills = SkillStore.load(projectRoot: projForSkills)
+        guard let skill = SkillStore.find(skillID, in: skills) else {
+            fail("ukendt skill '\(skillID)'. Se: forge skills")
+        }
+        prompt = skill.expand(input: args.positionals.first ?? "")
+        mode = skill.mode
+        defaultName = skill.id
+        info("skill: \(skill.name) (\(skill.origin.rawValue))")
+    } else {
+        guard let p = args.positionals.first, !p.isEmpty else {
+            fail("brug: forge build \"<prompt>\"   ·   eller: forge build --skill <id>")
+        }
+        prompt = p
+        mode = args.flag("plan") ? .plan : .build
+        defaultName = slug(p)
+    }
+
+    let dir = resolveProjectDir(args, defaultName: defaultName)
     info("model: \(config.displayName) (\(config.source.rawValue)) · framework: \(framework.displayName)")
     do {
         let engine = try await prepareEngine(dir: dir, framework: framework, config: config)
@@ -287,10 +309,26 @@ func cmdChat(_ args: Args, _ cfg: ForgeConfig) async {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty { continue }
         if trimmed == ":quit" || trimmed == ":q" { break }
+        if trimmed == ":skills" {
+            for s in SkillStore.load(projectRoot: dir) {
+                say("  " + green(s.id) + dim(" · ") + s.name + (s.origin == .builtin ? "" : dim(" [\(s.origin.rawValue)]")))
+            }
+            continue
+        }
 
         var mode: AgentLoop.Mode = .build
         var prompt = trimmed
-        if trimmed.hasPrefix(":plan ") { mode = .plan; prompt = String(trimmed.dropFirst(6)) }
+        if trimmed.hasPrefix(":plan ") {
+            mode = .plan; prompt = String(trimmed.dropFirst(6))
+        } else if trimmed.hasPrefix(":skill ") {
+            let parts = trimmed.dropFirst(7).split(separator: " ", maxSplits: 1).map(String.init)
+            guard let skill = SkillStore.find(parts.first ?? "", in: SkillStore.load(projectRoot: dir)) else {
+                say(red("ukendt skill — prøv :skills")); continue
+            }
+            mode = skill.mode
+            prompt = skill.expand(input: parts.count > 1 ? parts[1] : "")
+            info("skill: \(skill.name)")
+        }
 
         let result = await runTurn(engine, prompt: prompt, history: history, mode: mode)
         if mode == .build {
@@ -300,6 +338,18 @@ func cmdChat(_ args: Args, _ cfg: ForgeConfig) async {
     }
     await engine.devServer.shutdown()
     say(dim("\nFarvel."))
+}
+
+func cmdSkills(_ args: Args, _ cfg: ForgeConfig) {
+    let dir = args.option("project").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+    let skills = SkillStore.load(projectRoot: dir)
+    say(bold("Skills") + dim("  (~/.config/forge/skills/ + <projekt>/.forge/skills/)"))
+    for s in skills {
+        let tag = s.origin == .builtin ? "" : dim(" [\(s.origin.rawValue)]")
+        say("  " + green(s.id) + dim(" · ") + s.name + tag)
+        if !s.description.isEmpty { say("      " + dim(s.description)) }
+    }
+    say(dim("\nBrug:  forge build --skill <id> [\"ekstra tekst\"]   ·   i chat:  :skill <id> [tekst]"))
 }
 
 // MARK: - Dispatch
@@ -315,9 +365,10 @@ let command = argv.first!
 let rest = Args(Array(argv.dropFirst()))
 
 switch command {
-case "new":   await cmdNew(rest, cfg)
-case "build": await cmdBuild(rest, cfg)
-case "chat":  await cmdChat(rest, cfg)
+case "new":    await cmdNew(rest, cfg)
+case "build":  await cmdBuild(rest, cfg)
+case "chat":   await cmdChat(rest, cfg)
+case "skills": cmdSkills(rest, cfg)
 default:
     // `forge "<prompt>"` is shorthand for `forge build "<prompt>"`.
     if command.hasPrefix("--") { fail("ukendt kommando. Prøv: forge --help") }
