@@ -144,7 +144,8 @@ func prepareEngine(dir: URL, framework: Framework, config: ModelConfig) async th
 func makeDeps(_ engine: Engine, mode: AgentLoop.Mode, gate: (any PermissionGate)? = nil,
               pinned: [String] = []) -> AgentLoop.Dependencies {
     let processLayer = ForgeProcessLayer(workspace: engine.workspace, devServer: engine.devServer)
-    let base = mode == .plan ? SystemPrompt.plan : SystemPrompt.forge
+    // Strong models (cloud) get the line-replace prompt; local models keep full-file writes.
+    let base = mode == .plan ? SystemPrompt.plan : SystemPrompt.forge(lineReplace: engine.config.supportsLineReplace)
     var systemPrompt = engine.mcp.promptSection().map { base + "\n\n" + $0 } ?? base
     if let rules = RulesLoader.read(projectRoot: engine.workspace.root) {   // AGENTS.md + AI_RULES.md
         systemPrompt += "\n\n" + rules

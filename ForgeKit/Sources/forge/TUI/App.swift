@@ -20,6 +20,7 @@ enum AppEvent: Sendable {
     case permission(PermissionRequest, CheckedContinuation<PermissionDecision, Never>)
     case turnSnapshot(String)
     case diffLoaded(String)
+    case modelsLoaded([ModelConfig])
     case turnEnded
 }
 
@@ -57,8 +58,8 @@ final class TUIApp {
     private var okStyle: Style { theme.okStyle }
     private var warnStyle: Style { theme.warnStyle }
 
-    private let engine: Engine
-    private let modelName: String
+    private var engine: Engine                 // var: /model reassigns engine.config
+    private var modelName: String
     private let verbose: Bool
     private var size: Size
     private var prev: ScreenBuffer?
@@ -81,6 +82,7 @@ final class TUIApp {
     private var sessionTokens = 0
     private var spinnerFrame = 0
     private var turnSHAs: [String] = []        // pre-turn checkpoint SHAs (for /diff + /undo, P9/P11)
+    private var modelChoices: [ModelConfig]?   // non-nil while the /model picker is open
     private var pendingPermission: (PermissionRequest, CheckedContinuation<PermissionDecision, Never>)?
     private var turnTask: Task<Void, Never>?
     private var running = true
@@ -129,6 +131,7 @@ final class TUIApp {
             case .permission(let r, let c): pendingPermission = (r, c); status = "Tilladelse kræves"; needsRender = true
             case .turnSnapshot(let sha): turnSHAs.append(sha)
             case .diffLoaded(let d):    diffText = d; sidePane = .diff; status = "Diff"; needsRender = true
+            case .modelsLoaded(let ms): modelChoices = Array(ms.prefix(9)); status = "Vælg model (1–\(min(ms.count, 9))) · Esc"; needsRender = true
             case .turnEnded:            endTurn()
             }
             if !running { break }
@@ -140,6 +143,7 @@ final class TUIApp {
 
     private func handle(_ key: Key) {
         if pendingPermission != nil { handlePermissionKey(key); return }
+        if modelChoices != nil { handleModelKey(key); return }
         switch key {
         case .ctrl("c"):
             if isBusy { cancelTurn() } else { running = false }
@@ -330,6 +334,8 @@ final class TUIApp {
         var cursorPt: Point? = nil
         if let (req, _) = pendingPermission {
             drawPermissionModal(buf, request: req)
+        } else if modelChoices != nil {
+            drawModelModal(buf)
         } else {
             let before = String(input.prefix(cursor))
             let curX = min(layout.input.x + TextWidth.width(prompt) + TextWidth.width(before), layout.input.maxX - 1)
@@ -351,6 +357,24 @@ final class TUIApp {
         buf.box(rect, warnStyle, title: "Tilladelse")
         buf.text(TextWidth.truncate(label, toWidth: w - 4), x: x + 2, y: y + 2, .default, clip: rect)
         buf.text("[J]a   [A]ltid i session   [N]ej", x: x + 2, y: y + 4, accent, clip: rect)
+    }
+
+    private func drawModelModal(_ buf: ScreenBuffer) {
+        guard let choices = modelChoices else { return }
+        let w = min(size.cols - 4, 66)
+        let h = min(size.rows - 2, choices.count + 4)
+        let x = (size.cols - w) / 2, y = (size.rows - h) / 2
+        let rect = Rect(x: x, y: y, w: w, h: h)
+        buf.fill(rect, " ", .default)
+        buf.box(rect, accentBold, title: "Vælg model")
+        for (i, m) in choices.enumerated() where y + 1 + i < y + h - 1 {
+            let src = m.source == .cloud ? "cloud" : (m.source == .ollama ? "ollama" : "lm studio")
+            let cost = m.source == .cloud ? "" : " · gratis"
+            let cur = m.id == engine.config.id ? " ✓" : ""
+            let line = "\(i + 1))  \(m.displayName)  ·  \(src)\(cost)\(cur)"
+            buf.text(TextWidth.truncate(line, toWidth: w - 4), x: x + 2, y: y + 1 + i, .default, clip: rect)
+        }
+        buf.text("tal vælger · Esc annullerer", x: x + 2, y: y + h - 1, dimStyle, clip: rect)
     }
 
     /// The side pane: the live-streaming file (syntax-highlighted, with a gutter), or
@@ -400,9 +424,41 @@ final class TUIApp {
         let arg = parts.count > 1 ? parts[1] : ""
         switch cmd {
         case "diff":       loadDiff(arg)
+        case "model":      loadModels()
         case "quit", "q":  running = false
-        case "help":       transcript.append(Line(role: .system, text: "kommandoer: /diff [n] · /quit  (flere i P12)"))
+        case "help":       transcript.append(Line(role: .system, text: "kommandoer: /diff [n] · /model · /quit  (flere i P12)"))
         default:           transcript.append(Line(role: .system, text: "ukendt kommando: /\(cmd) — prøv /help"))
+        }
+    }
+
+    /// /model — discover local models (LM Studio + Ollama) and open the picker. The
+    /// current model is kept selectable so you can confirm/keep it.
+    private func loadModels() {
+        guard let cont = channel else { return }
+        status = "Finder modeller…"
+        let current = engine.config
+        Task {
+            var models = await ModelDiscovery.discoverLocal()
+            if !models.contains(where: { $0.id == current.id }) { models.insert(current, at: 0) }
+            cont.yield(.modelsLoaded(models))
+        }
+    }
+
+    private func handleModelKey(_ key: Key) {
+        guard let choices = modelChoices else { return }
+        switch key {
+        case .escape:
+            modelChoices = nil; status = "Klar."; needsRender = true
+        case .char(let c) where c.isNumber:
+            let n = (Int(String(c)) ?? 0) - 1
+            if n >= 0, n < choices.count {
+                engine.config = choices[n]                  // next turn's makeDeps reads the new model
+                modelName = choices[n].displayName
+                modelChoices = nil
+                status = "Model: \(modelName)"
+                needsRender = true
+            }
+        default: break
         }
     }
 

@@ -83,6 +83,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `d5d8160` 2026-06-17 — TUI P9 (opencode/nanocoder): colored diffs + /diff
 - `d8ab049` 2026-06-17 — TUI P8 (opencode/nanocoder): live file-streaming + syntax highlight
 - `f44a92a` 2026-06-17 — TUI P7 (opencode/nanocoder): ANSITheme + CheckpointManager in the CLI engine
 - `79e843c` 2026-06-17 — TUI P6 (opencode/nanocoder): wire the real AgentLoop + permission modal
@@ -102,5 +103,4 @@ ollama list | grep qwen2.5-coder
 - `09bd6e2` 2026-06-17 — Fase 1a (opencode): approval-gate — motor + CLI
 - `445852d` 2026-06-17 — docs(handoff): opdater commit-log
 - `7a35e83` 2026-06-17 — fix(engine): hæv max output-tokens 8k → 16k
-- `10a7ced` 2026-06-17 — docs(handoff): opdater commit-log
 <!-- COMMITLOG:END -->
