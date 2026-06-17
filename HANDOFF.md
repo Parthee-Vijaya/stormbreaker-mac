@@ -6,7 +6,7 @@
 > → Forge kører det → preview opdaterer via HMR.
 
 - **Sidst opdateret:** 2026-06-18
-- **Status:** Walking skeleton + **Lovable-stil UI** KOMPLET og verificeret i GUI. Empty-state hero → split-layout når der bygges; synlig tekst (tvunget lyst tema), fil-chips pr. besked, preview-toolbar (device-toggles/URL/refresh/åbn-i-browser), HMR-edits. **Multi-model**: auto-discovery af Ollama + LM Studio (verificeret live). **Kode-visning + fil-træ** (redigerbar editor → HMR) og **multi-projekt + historik** (skift/opret/slet, persistent pr. projekt) — begge verificeret live. **nanocoder-køreplan leveret**: `forge` CLI, bruger-skills (CLI+GUI), og MCP tool-calling — agenten kan kalde eksterne MCP-værktøjer midt i et build (e2e-verificeret) + eksterne agenter kan drive Forge via `forge-mcp`. Alle 112 ForgeKit-tests grønne; Mac-app + CLI bygger.
+- **Status:** Walking skeleton + **Lovable-stil UI** KOMPLET og verificeret i GUI. Empty-state hero → split-layout når der bygges; synlig tekst (tvunget lyst tema), fil-chips pr. besked, preview-toolbar (device-toggles/URL/refresh/åbn-i-browser), HMR-edits. **Multi-model**: auto-discovery af Ollama + LM Studio (verificeret live). **Kode-visning + fil-træ** (redigerbar editor → HMR) og **multi-projekt + historik** (skift/opret/slet, persistent pr. projekt) — begge verificeret live. **nanocoder-køreplan leveret**: `forge` CLI, bruger-skills (CLI+GUI), og MCP tool-calling — agenten kan kalde eksterne MCP-værktøjer midt i et build (e2e-verificeret) + eksterne agenter kan drive Forge via `forge-mcp`. **opencode-køreplan leveret**: approval-gate, diagnostics, cost, AGENTS.md, @file, export, prettier, steer-API + **fuld-skærms TUI** (`forge chat`) med live fil-streaming, farvediffs, model-skift, sessioner, slash-menu/temaer og en Kontekst-sidebar. **agentic-SDLC leveret**: reviewer-agent, GitHub-integration (GIT-sidebar + `/github`/`/push`/`/pull`/`/pr`) og swarm/kø (`/kø` + KØ-sidebar). Alle 177 ForgeKit-tests grønne; Mac-app + CLI bygger.
 - **Branch:** main · committed: skeleton + Lovable-UI + LM Studio-discovery (intet remote endnu)
 
 ## Stack
@@ -80,9 +80,17 @@ ollama list | grep qwen2.5-coder
   - **Klient** (`MCPClient` + `MCPManager`): læser nanocoder-kompatibel `.forge/.mcp.json` (`${ENV}`-expansion), starter servere, aggregerer værktøjer.
   - **Agent-integration**: modellen kalder et værktøj med `<forgeAction type="mcp" server tool>{args}` (SKAL ligge i en `<forgeArtifact>`) → tool-round i AgentLoop (≤5, tæller ikke som repair) → resultatet fodres tilbage via `mcpResultTurn`. Virker i både CLI og GUI. E2e-verificeret med qwen3.6 + en throwaway MCP-server (modellen hentede en uggætbar kode og brugte den i den byggede side).
 
+## agentic-SDLC-køreplan (reviewer · GitHub · swarm) — leveret
+Borrow fra scalable.dk/agentic-sdlc — gør Forge til et lille team, ikke kun én agent.
+
+- ✅ **Reviewer-agent (RA1–RA3):** efter et rent build gennemgår en 2. agent (plan-modellen) diff'en for korrekthed/sikkerhed/tilgængelighed. Rådgivende — blokerer aldrig. `ReviewAgent` i ForgeKit parser `SEVERITY :: KATEGORI :: FIL :: BESKED`; vises i TUI-transcript + REVIEW-sidebar (`/review`, `/fix`) og i GUI som et kort (Ret det/Afvis). Slå til/fra i Settings (`reviewOnBuild`).
+- ✅ **GitHub (G1–G2):** `GitService` (ForgeKit) styrer projektets RIGTIGE `.git` + `gh` — adskilt fra checkpoint-skyggerepoet. `GitStatus` (isRepo/branch/remote/↑↓/dirty/openPR) vises i en **GIT-sektion i Kontekst-sidebaren** (5 tilstande: ikke-repo → fuldt synk). Kommandoer `/github [navn] [public]` (privat som standard), `/commit`, `/push`, `/pull --rebase`, `/pr` (laver `forge/<slug>`-branch hvis på main). 13 unit-tests. Probe-formater verificeret mod forge-mac-repoet.
+- ✅ **Swarm/kø (S1–S2):** sekventiel byggekø (swarm-lite — ét projekt = én build ad gangen, ellers fil-konflikter). `/kø <opgave>` stiller i kø + starter hvis ledig; drainer én ad gangen, build+review pr. task før næste. **Pause ved fejl** (køede tasks bygger oftest videre på forrige → fejl kaskaderer ellers); `/kø` genoptager, `/kø ryd` rydder. **KØ-sidebar-sektion** med live-status ⋯ kø · ⟳ bygger · ◎ review · ✓ færdig · ✗ fejl. Verificeret live på qwen3.6 (tmux): empty → 3 i kø → "✓ A / ⟳ B / ⋯ C" drainer korrekt.
+
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `1dc4b23` 2026-06-18 — Swarm/kø S1+S2 (agentic-SDLC borrow): task queue runner + KØ sidebar
 - `799678c` 2026-06-18 — GitHub G2 (agentic-SDLC borrow): GIT sidebar section + slash commands
 - `2e12ddf` 2026-06-18 — GitHub G1 (agentic-SDLC borrow): GitService + GitStatus in ForgeKit
 - `4ef6e5f` 2026-06-18 — Reviewer RA3 (agentic-SDLC borrow): reviewer in the Mac app
@@ -102,5 +110,4 @@ ollama list | grep qwen2.5-coder
 - `4ef787e` 2026-06-17 — TUI P5 (opencode/nanocoder): full-screen event loop
 - `64a562c` 2026-06-17 — TUI P4 (opencode/nanocoder): input decoder
 - `9d9bc7c` 2026-06-17 — TUI P3 (opencode/nanocoder): layout solver + Forge screen skeleton
-- `64f4be1` 2026-06-17 — TUI P2 (opencode/nanocoder): pure render core in ForgeKit
 <!-- COMMITLOG:END -->
