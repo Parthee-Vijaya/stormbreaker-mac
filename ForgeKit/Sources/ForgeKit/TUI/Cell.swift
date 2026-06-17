@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// A 24-bit color, or "use the terminal's default" (so themes can leave fg/bg unset).
-public struct Color: Sendable, Equatable {
+public struct TermColor: Sendable, Equatable {
     public var r: UInt8
     public var g: UInt8
     public var b: UInt8
@@ -16,26 +16,26 @@ public struct Color: Sendable, Equatable {
     private init(defaulted: Bool) { r = 0; g = 0; b = 0; isDefault = defaulted }
 
     /// The terminal's own foreground/background (SGR 39/49).
-    public static let `default` = Color(defaulted: true)
+    public static let `default` = TermColor(defaulted: true)
 
-    public static func rgb(_ r: UInt8, _ g: UInt8, _ b: UInt8) -> Color { Color(r: r, g: g, b: b) }
+    public static func rgb(_ r: UInt8, _ g: UInt8, _ b: UInt8) -> TermColor { TermColor(r: r, g: g, b: b) }
 
-    /// 0xRRGGBB → Color. Mirrors the GUI palette's hex literals.
-    public static func hex(_ v: UInt32) -> Color {
-        Color(r: UInt8((v >> 16) & 0xFF), g: UInt8((v >> 8) & 0xFF), b: UInt8(v & 0xFF))
+    /// 0xRRGGBB → TermColor. Mirrors the GUI palette's hex literals.
+    public static func hex(_ v: UInt32) -> TermColor {
+        TermColor(r: UInt8((v >> 16) & 0xFF), g: UInt8((v >> 8) & 0xFF), b: UInt8(v & 0xFF))
     }
 }
 
 /// Foreground/background + attributes for one cell or run.
 public struct Style: Sendable, Equatable {
-    public var fg: Color
-    public var bg: Color
+    public var fg: TermColor
+    public var bg: TermColor
     public var bold: Bool
     public var dim: Bool
     public var underline: Bool
     public var reverse: Bool
 
-    public init(fg: Color = .default, bg: Color = .default,
+    public init(fg: TermColor = .default, bg: TermColor = .default,
                 bold: Bool = false, dim: Bool = false, underline: Bool = false, reverse: Bool = false) {
         self.fg = fg; self.bg = bg; self.bold = bold; self.dim = dim
         self.underline = underline; self.reverse = reverse

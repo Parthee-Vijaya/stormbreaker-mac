@@ -68,7 +68,9 @@ final class TUIApp {
     private var cursor = 0
     private var scroll = 0
     private var status = "Klar."
-    private var sideTitle = "Info"
+    private var liveFile: String?              // file currently streaming (side pane)
+    private var liveBuffer = ""                // its contents so far
+    private var showInfo = false               // Tab toggles the side pane: live-write ⇄ info
     private var isBusy = false
     private var pendingUser: String?
     private var currentAssistant: String?
@@ -153,7 +155,7 @@ final class TUIApp {
         case .down:  scroll = max(0, scroll - 1); needsRender = true
         case .pageUp:   scroll += max(1, size.rows - 4); needsRender = true
         case .pageDown: scroll = max(0, scroll - max(1, size.rows - 4)); needsRender = true
-        case .tab:   sideTitle = sideTitle == "Info" ? "Kode" : "Info"; needsRender = true
+        case .tab:   showInfo.toggle(); needsRender = true
         case .enter: if !isBusy { submit() }
         default: break
         }
@@ -184,6 +186,7 @@ final class TUIApp {
         input = ""; cursor = 0; scroll = 0
         transcript.append(Line(role: .user, text: text))
         pendingUser = text
+        liveFile = nil; liveBuffer = ""
         isBusy = true; status = "Tænker…"; spinnerFrame = 0
         let engine = self.engine
         let prior = history
@@ -229,15 +232,20 @@ final class TUIApp {
             }
             currentAssistant = (currentAssistant ?? "") + t
             if let i = assistantLineIndex, transcript.indices.contains(i) { transcript[i].text = currentAssistant ?? "" }
+        case .fileWriting(let path):
+            liveFile = path; liveBuffer = ""                 // start streaming into the side pane
+        case .fileChunk(let path, let text):
+            if path == liveFile { liveBuffer += text }
         case .fileWritten(let path):
+            if liveFile != path { liveFile = path }          // line-replace edits may not stream chunks
             transcript.append(Line(role: .system, text: "✎ \(path)"))
         case .previewReady(let url):
             transcript.append(Line(role: .system, text: "→ preview: \(url.absoluteString)"))
             status = "kører · \(url.absoluteString)"
         case .metrics(let m):
             sessionTokens += m.totalTokens
-        case .reasoning, .fileWriting, .fileChunk, .usage:
-            break                                            // .fileWriting/.fileChunk surface in phase 8
+        case .reasoning, .usage:
+            break
         }
         scroll = 0                                            // stick to the bottom while streaming
         needsRender = true
@@ -291,10 +299,7 @@ final class TUIApp {
         }
 
         // Side pane
-        if !layout.side.isEmpty {
-            buf.box(layout.side, dimStyle, title: sideTitle)
-            buf.text("(Tab skifter · diff/kode kommer)", x: layout.side.x + 2, y: layout.side.y + 2, dimStyle, clip: layout.side)
-        }
+        if !layout.side.isEmpty { renderSide(buf, layout.side) }
 
         // Status bar
         buf.fill(layout.status, " ", dimStyle)
@@ -337,6 +342,38 @@ final class TUIApp {
         buf.text(TextWidth.truncate(label, toWidth: w - 4), x: x + 2, y: y + 2, .default, clip: rect)
         buf.text("[J]a   [A]ltid i session   [N]ej", x: x + 2, y: y + 4, accent, clip: rect)
     }
+
+    /// The side pane: the live-streaming file (syntax-highlighted, with a gutter), or
+    /// an info card. Tab toggles which one is shown while a file is streaming.
+    private func renderSide(_ buf: ScreenBuffer, _ rect: Rect) {
+        if let lf = liveFile, !showInfo {
+            buf.box(rect, dimStyle, title: shortName(lf))
+            let inner = rect.inset(1)
+            guard inner.h > 0, inner.w > 6 else { return }
+            let lines = liveBuffer.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+            let show = Array(lines.suffix(inner.h))               // newest lines = watch it being written
+            let firstNo = max(1, lines.count - show.count + 1)
+            for (i, line) in show.enumerated() {
+                let no = firstNo + i
+                let gutter = String(repeating: " ", count: max(0, 3 - String(no).count)) + "\(no) "
+                buf.text(gutter, x: inner.x, y: inner.y + i, dimStyle, clip: inner)
+                var x = inner.x + 4
+                for (seg, st) in ANSIColorizer.spans(line, theme: theme) {
+                    if x >= inner.maxX { break }
+                    x = buf.text(seg, x: x, y: inner.y + i, st, clip: inner)
+                }
+            }
+        } else {
+            buf.box(rect, dimStyle, title: "Info")
+            let inner = rect.inset(1)
+            guard inner.h > 0 else { return }
+            buf.text("model: \(modelName)", x: inner.x + 1, y: inner.y, dimStyle, clip: inner)
+            if liveFile != nil { buf.text("Tab → live kode", x: inner.x + 1, y: inner.y + 2, dimStyle, clip: inner) }
+            if !turnSHAs.isEmpty { buf.text("\(turnSHAs.count) checkpoint(s)", x: inner.x + 1, y: inner.y + 3, dimStyle, clip: inner) }
+        }
+    }
+
+    private func shortName(_ path: String) -> String { path.split(separator: "/").last.map(String.init) ?? path }
 
     private func transcriptVisualLines(width: Int) -> [(String, Style)] {
         var out: [(String, Style)] = []

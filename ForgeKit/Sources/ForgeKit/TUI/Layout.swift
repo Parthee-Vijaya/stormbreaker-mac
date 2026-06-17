@@ -14,13 +14,13 @@ public enum Constraint: Sendable, Equatable {
     var weight: Int { switch self { case .fixed: return 0; case .min: return 1; case .ratio(let w): return max(0, w) } }
 }
 
-public enum Axis: Sendable { case horizontal, vertical }
+public enum LayoutAxis: Sendable { case horizontal, vertical }
 
 /// Slice `area` along `axis` into one rect per constraint. Fixed/min reserve their
 /// minimum first; the leftover is distributed across weights (ratio + min). On a
 /// terminal too small to honor the minimums, later slices shrink toward zero
 /// (never negative).
-public func splitRects(_ area: Rect, _ axis: Axis, _ constraints: [Constraint]) -> [Rect] {
+public func splitRects(_ area: Rect, _ axis: LayoutAxis, _ constraints: [Constraint]) -> [Rect] {
     guard !constraints.isEmpty else { return [] }
     let total = axis == .vertical ? area.h : area.w
     let base = constraints.reduce(0) { $0 + $1.minSize }

@@ -2,7 +2,7 @@ import ForgeKit
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ANSITheme (Part 3, phase 7) — one palette read by the App chrome, the syntax
-// colorizer (P8), and the diff renderer (P9). `/theme` (P12) switches it. Colors
+// colorizer (P8), and the diff renderer (P9). `/theme` (P12) switches it. TermColors
 // mirror the GUI palettes (CodePane SyntaxHighlighter + DiffView). `.mono` uses
 // the terminal defaults — the low-color / accessibility fallback.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -10,21 +10,21 @@ import ForgeKit
 struct ANSITheme: Sendable, Equatable {
     var name: String
     // Chrome
-    var accent: Color
-    var error: Color
-    var ok: Color
-    var warn: Color
+    var accent: TermColor
+    var error: TermColor
+    var ok: TermColor
+    var warn: TermColor
     // Syntax (TS/JSX)
-    var keyword: Color
-    var type: Color
-    var number: Color
-    var string: Color
-    var comment: Color
+    var keyword: TermColor
+    var type: TermColor
+    var number: TermColor
+    var string: TermColor
+    var comment: TermColor
     // Diff
-    var diffAdd: Color
-    var diffDel: Color
-    var diffHunk: Color
-    var diffMeta: Color
+    var diffAdd: TermColor
+    var diffDel: TermColor
+    var diffHunk: TermColor
+    var diffMeta: TermColor
 
     // Convenience styles
     var accentStyle: Style { Style(fg: accent) }

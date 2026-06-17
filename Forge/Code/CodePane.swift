@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ForgeKit
 
 /// Code view: a file tree + an editable monospace editor. Edits auto-save and
 /// Vite HMR refreshes the preview.
@@ -330,12 +331,13 @@ enum SyntaxHighlighter {
     private static let string  = dyn(0x16A34A, 0xC3E88D)
     private static let comment = dyn(0x9AA0AE, 0x6B7180)
 
-    private static let keywordRE = try! NSRegularExpression(pattern:
-        "\\b(const|let|var|function|return|if|else|for|while|do|import|export|from|default|class|extends|new|async|await|try|catch|finally|throw|switch|case|break|continue|type|interface|enum|public|private|protected|readonly|static|void|null|undefined|true|false|this|super|in|of|as|typeof|instanceof|yield|get|set)\\b")
-    private static let typeRE = try! NSRegularExpression(pattern: "\\b[A-Z][A-Za-z0-9_]*\\b")
-    private static let numberRE = try! NSRegularExpression(pattern: "\\b\\d+(?:\\.\\d+)?\\b")
-    private static let stringRE = try! NSRegularExpression(pattern: "\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'|`(?:\\\\.|[^`\\\\])*`")
-    private static let commentRE = try! NSRegularExpression(pattern: "//[^\\n]*|/\\*[\\s\\S]*?\\*/")
+    // Patterns shared with the CLI TUI (ForgeKit.SyntaxRules) so the two highlighters
+    // can't drift. The GUI keeps its own NSColor mapping below.
+    private static let keywordRE = try! NSRegularExpression(pattern: SyntaxRules.keywordPattern)
+    private static let typeRE = try! NSRegularExpression(pattern: SyntaxRules.typePattern)
+    private static let numberRE = try! NSRegularExpression(pattern: SyntaxRules.numberPattern)
+    private static let stringRE = try! NSRegularExpression(pattern: SyntaxRules.stringPattern)
+    private static let commentRE = try! NSRegularExpression(pattern: SyntaxRules.commentPattern)
 
     static func apply(to textView: NSTextView) {
         guard let storage = textView.textStorage else { return }
