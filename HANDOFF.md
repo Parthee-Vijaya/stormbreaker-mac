@@ -83,6 +83,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `c0dc38b` 2026-06-17 — Fase 2b (opencode): cost-tracking (kr/$) på metrics
 - `9829233` 2026-06-17 — Fase 1b (opencode): approval-gate — GUI
 - `09bd6e2` 2026-06-17 — Fase 1a (opencode): approval-gate — motor + CLI
 - `445852d` 2026-06-17 — docs(handoff): opdater commit-log
@@ -102,5 +103,4 @@ ollama list | grep qwen2.5-coder
 - `7fb9d1f` 2026-06-16 — docs(roadmap): backlog-oprydning — audit af kode mod plan
 - `eb3e250` 2026-06-16 — docs(handoff): nanocoder-køreplan (CLI + Skills + MCP) leveret
 - `b5c0c3c` 2026-06-16 — Phase 3 (MCP) part 2b: agenten kan kalde eksterne MCP-værktøjer
-- `df0f4b1` 2026-06-16 — feat(mcp): MCP client + manager — Forge can use external tools (Phase 3, part 2a)
 <!-- COMMITLOG:END -->

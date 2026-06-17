@@ -236,6 +236,9 @@ final class AppModel: PermissionGate {
     // Diagnostics
     var serverLog: [LogLine] = []
     var jsErrors: [RuntimeIssue] = []
+    /// Fase 2a: build/type errors (file+line) from the last error-collection, shown
+    /// as inline squiggles in the code editor. Cleared when a build comes back clean.
+    var diagnostics: [ErrorReport.Item] = []
     var showConsole: Bool = false
 
     // Toasts (transient success/info confirmations)
@@ -1808,6 +1811,7 @@ final class AppModel: PermissionGate {
         }
         hasStarted = true
         jsErrors = []                  // a new turn supersedes prior runtime errors
+        diagnostics = []               // stale editor squiggles cleared; repopulated on collect
         turnTokens = 0                 // count tokens for this turn afresh
         lastAutoFixSignature = nil
         autoFixTask?.cancel()
@@ -2077,12 +2081,22 @@ final class AppModel: PermissionGate {
     /// Only runs at the clean decision point, so repair iterations stay fast; a
     /// no-op when disabled or when there's no preview yet.
     private func collectWithSmokeTest() async -> ErrorReport {
-        let report = await errorCollector.collect()
-        guard report.isClean, preferences.functionalSmokeTest, let url = previewURL else { return report }
-        let issues = await PreviewSmokeTester().run(url)
-        guard !issues.isEmpty else { return report }
-        await errorCollector.submit(issues)
-        return await errorCollector.collect()
+        var report = await errorCollector.collect()
+        if report.isClean, preferences.functionalSmokeTest, let url = previewURL {
+            let issues = await PreviewSmokeTester().run(url)
+            if !issues.isEmpty {
+                await errorCollector.submit(issues)
+                report = await errorCollector.collect()
+            }
+        }
+        diagnostics = report.items.filter { $0.file != nil }   // Fase 2a: editor squiggles
+        return report
+    }
+
+    /// Fase 2a: 1-based line numbers with build/type errors in `path` (the open file).
+    func diagnosticLines(for path: String?) -> Set<Int> {
+        guard let path else { return [] }
+        return Set(diagnostics.compactMap { $0.file == path ? $0.line : nil })
     }
 
     /// C2 — stream the file being written into the editor: auto-switch to Code,

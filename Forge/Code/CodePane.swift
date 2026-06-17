@@ -159,7 +159,8 @@ private struct CodeEditorView: View {
                 VStack { Spacer(); Text("Select a file to edit").foregroundStyle(Theme.inkFaint); Spacer() }
                     .frame(maxWidth: .infinity)
             } else {
-                CodeTextView(text: $model.editorText, autoScroll: model.isStreamingFile)
+                CodeTextView(text: $model.editorText, autoScroll: model.isStreamingFile,
+                             diagnosticLines: model.diagnosticLines(for: model.selectedFile))
                     .background(Theme.canvas)
                     .onChange(of: model.editorText) { model.onEditorChange() }
             }
@@ -181,6 +182,7 @@ private struct CodeEditorView: View {
 struct CodeTextView: NSViewRepresentable {
     @Binding var text: String
     var autoScroll: Bool = false
+    var diagnosticLines: Set<Int> = []   // Fase 2a: 1-based lines with build/type errors
 
     func makeNSView(context: Context) -> NSView {
         let textView = NSTextView()
@@ -218,6 +220,8 @@ struct CodeTextView: NSViewRepresentable {
         scrollView.hasVerticalRuler = true
         scrollView.rulersVisible = true
         context.coordinator.ruler = ruler
+        ruler.errorLines = diagnosticLines
+        Self.applyDiagnostics(diagnosticLines, to: textView)
         scrollView.contentView.postsBoundsChangedNotifications = true
         let nc = NotificationCenter.default
         nc.addObserver(context.coordinator, selector: #selector(Coordinator.refreshRuler),
@@ -243,6 +247,38 @@ struct CodeTextView: NSViewRepresentable {
             }
             context.coordinator.scheduleHighlight()
             context.coordinator.minimap?.needsDisplay = true
+        }
+        // Re-apply diagnostics (errors may have changed even when text didn't).
+        Self.applyDiagnostics(diagnosticLines, to: textView)
+        if context.coordinator.ruler?.errorLines != diagnosticLines {
+            context.coordinator.ruler?.errorLines = diagnosticLines
+        }
+    }
+
+    /// Fase 2a: red dotted underline (display-only temporary attributes) under each
+    /// line that has a build/type error. Independent of the syntax-highlight layer.
+    static func applyDiagnostics(_ lines: Set<Int>, to textView: NSTextView) {
+        guard let lm = textView.layoutManager else { return }
+        let ns = textView.string as NSString
+        let full = NSRange(location: 0, length: ns.length)
+        lm.removeTemporaryAttribute(.underlineStyle, forCharacterRange: full)
+        lm.removeTemporaryAttribute(.underlineColor, forCharacterRange: full)
+        guard !lines.isEmpty, ns.length > 0 else { return }
+        var lineNo = 1, idx = 0
+        while idx < ns.length {
+            let lineRange = ns.lineRange(for: NSRange(location: idx, length: 0))
+            if lines.contains(lineNo) {
+                var r = lineRange   // drop trailing newline so the underline hugs the code
+                if r.length > 0, ns.character(at: r.location + r.length - 1) == 0x0A { r.length -= 1 }
+                if r.length > 0 {
+                    lm.addTemporaryAttributes(
+                        [.underlineStyle: NSUnderlineStyle.thick.rawValue | NSUnderlineStyle.patternDot.rawValue,
+                         .underlineColor: NSColor.systemRed],
+                        forCharacterRange: r)
+                }
+            }
+            lineNo += 1
+            idx = lineRange.location + lineRange.length
         }
     }
 
@@ -330,6 +366,7 @@ enum SyntaxHighlighter {
 /// and the caret's line is highlighted in the accent colour.
 final class LineNumberRulerView: NSRulerView {
     weak var codeView: NSTextView?
+    var errorLines: Set<Int> = [] { didSet { if errorLines != oldValue { needsDisplay = true } } }   // Fase 2a
 
     init(textView: NSTextView) {
         super.init(scrollView: textView.enclosingScrollView, orientation: .verticalRuler)
@@ -347,6 +384,7 @@ final class LineNumberRulerView: NSRulerView {
     private let gutterBG = dyn(0xF4F4F7, 0x0C0E14)
     private let numColor = dyn(0x9A9AA4, 0x6B7180)
     private let activeColor = NSColor(hex: 0x7C6CFF)
+    private let errorColor = NSColor.systemRed
 
     override func drawHashMarksAndLabels(in rect: NSRect) {
         guard let textView = codeView, let lm = textView.layoutManager,
@@ -372,10 +410,11 @@ final class LineNumberRulerView: NSRulerView {
             let isParaStart = charStart == 0 || content.character(at: charStart - 1) == 0x0A
             guard isParaStart else { return }
             let active = lineNumber == activeLine
+            let isError = self.errorLines.contains(lineNumber)
             let label = "\(lineNumber)" as NSString
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: active ? bold : base,
-                .foregroundColor: active ? self.activeColor : self.numColor,
+                .font: (active || isError) ? bold : base,
+                .foregroundColor: isError ? self.errorColor : (active ? self.activeColor : self.numColor),
             ]
             let size = label.size(withAttributes: attrs)
             let y = fragRect.minY + inset - visibleRect.minY + (fragRect.height - size.height) / 2
