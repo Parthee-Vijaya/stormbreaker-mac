@@ -139,7 +139,7 @@ func prepareEngine(dir: URL, framework: Framework, config: ModelConfig) async th
                   collector: ErrorCollector(devServer: devServer), config: config, mcp: mcp)
 }
 
-func makeDeps(_ engine: Engine, mode: AgentLoop.Mode) -> AgentLoop.Dependencies {
+func makeDeps(_ engine: Engine, mode: AgentLoop.Mode, gate: (any PermissionGate)? = nil) -> AgentLoop.Dependencies {
     let processLayer = ForgeProcessLayer(workspace: engine.workspace, devServer: engine.devServer)
     let base = mode == .plan ? SystemPrompt.plan : SystemPrompt.forge
     let systemPrompt = engine.mcp.promptSection().map { base + "\n\n" + $0 } ?? base
@@ -159,6 +159,7 @@ func makeDeps(_ engine: Engine, mode: AgentLoop.Mode) -> AgentLoop.Dependencies 
             let args = (try? JSONSerialization.jsonObject(with: Data(argsJSON.utf8))) as? [String: Any] ?? [:]
             return await mcp.call(server: server, tool: tool, arguments: args)
         },
+        permissionGate: gate,
         settleDelay: .seconds(2),
         maxRepairAttempts: 3)
 }
@@ -194,11 +195,30 @@ func printSession(_ m: MetricsAccumulator) {
         + "\(fmtRate(m.tokensPerSecond)) · \(fmtSecs(m.totalSeconds))")
 }
 
+/// CLI approval gate: prompts on stdin (j/n/a) before shell/dep/MCP actions.
+/// Interactive runs only — CI (`--plain`/non-TTY) and `--yes` use nil (allow-all).
+final class StdinPermissionGate: PermissionGate, @unchecked Sendable {
+    private var sessionAllowed = Set<String>()
+    func decide(_ request: PermissionRequest) async -> PermissionDecision {
+        let key = request.label
+        if sessionAllowed.contains(key) { return .allowForSession }
+        say("\n" + cyan("⚠ Forge vil \(request.label)"))
+        FileHandle.standardOutput.write(Data(bold("  Tillad? [j]a / [n]ej / [a]ltid: ").utf8))
+        let answer = readLine(strippingNewline: true)?.trimmingCharacters(in: .whitespaces).lowercased() ?? ""
+        switch answer.first {
+        case "a": sessionAllowed.insert(key); return .allowForSession
+        case "n": return .deny
+        default:  return .allow   // empty or j/y → allow once
+        }
+    }
+}
+
 func runTurn(_ engine: Engine, prompt: String, history: [ChatMessage], mode: AgentLoop.Mode,
-             verbose: Bool = false, session: MetricsAccumulator? = nil)
+             verbose: Bool = false, session: MetricsAccumulator? = nil,
+             gate: (any PermissionGate)? = nil)
     async -> (assistant: String, preview: URL?, clean: Bool)
 {
-    let loop = AgentLoop(makeDeps(engine, mode: mode))
+    let loop = AgentLoop(makeDeps(engine, mode: mode, gate: gate))
     var assistant = ""
     var preview: URL?
     var clean = false
@@ -309,6 +329,7 @@ let helpText = """
   --no-serve           afslut efter build i stedet for at holde preview kørende (CI)
   --plain              ingen farver/ANSI (CI-venligt)
   --verbose            vis metrics pr. kald (tokens, TTFT, tok/s) + session-total
+  --yes                spørg ikke før shell-kommandoer/pakker/MCP (interaktiv default: spørg)
 
 Config: \(configDir().appendingPathComponent("config.json").path)
 """
@@ -358,8 +379,9 @@ func cmdBuild(_ args: Args, _ cfg: ForgeConfig) async {
         let engine = try await prepareEngine(dir: dir, framework: framework, config: config)
         let session = MetricsAccumulator()
         let verbose = args.flag("verbose") || cfg.verbose == true
+        let gate: (any PermissionGate)? = (!plain && !args.flag("yes")) ? StdinPermissionGate() : nil
         let result = await runTurn(engine, prompt: prompt, history: [], mode: mode,
-                                   verbose: verbose, session: session)
+                                   verbose: verbose, session: session, gate: gate)
         printSession(session)
         if mode == .build, result.preview != nil, !args.flag("no-serve") {
             await waitUntilInterrupt(engine)
@@ -381,6 +403,7 @@ func cmdChat(_ args: Args, _ cfg: ForgeConfig) async {
     say(dim("Skriv hvad du vil bygge. ':plan <prompt>' for kun at planlægge · ':quit' for at stoppe."))
     let session = MetricsAccumulator()
     let verbose = args.flag("verbose") || cfg.verbose == true
+    let gate: (any PermissionGate)? = (!plain && !args.flag("yes")) ? StdinPermissionGate() : nil
     var history: [ChatMessage] = []
     while true {
         FileHandle.standardOutput.write(Data((bold("\nforge› ")).utf8))
@@ -410,7 +433,7 @@ func cmdChat(_ args: Args, _ cfg: ForgeConfig) async {
         }
 
         let result = await runTurn(engine, prompt: prompt, history: history, mode: mode,
-                                   verbose: verbose, session: session)
+                                   verbose: verbose, session: session, gate: gate)
         if mode == .build {
             history.append(ChatMessage(role: .user, content: prompt))
             history.append(ChatMessage(role: .assistant, content: result.assistant))

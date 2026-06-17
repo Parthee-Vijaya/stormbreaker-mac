@@ -7,13 +7,16 @@ import Foundation
 /// server is up is ignored.
 public actor ActionExecutor {
     private let process: any ProcessLayer
+    private let gate: (any PermissionGate)?
     private var pendingDeps: [String] = []
     private var pendingShell: [String] = []
     private var startRequested = false
     private var filesWritten: [String] = []
+    private var deniedActions: [String] = []
 
-    public init(process: any ProcessLayer) {
+    public init(process: any ProcessLayer, gate: (any PermissionGate)? = nil) {
         self.process = process
+        self.gate = gate
     }
 
     /// Process one event in stream order.
@@ -62,11 +65,19 @@ public actor ActionExecutor {
     /// artifact close.
     public func flush() async throws {
         if !pendingDeps.isEmpty {
-            try await process.addDependencies(pendingDeps)
+            if await approved(.addDependencies(pendingDeps)) {
+                try await process.addDependencies(pendingDeps)
+            } else {
+                deniedActions.append(PermissionRequest.addDependencies(pendingDeps).label)
+            }
             pendingDeps.removeAll()
         }
         for command in pendingShell {
-            _ = try await process.runShell(command)
+            if await approved(.shell(command: command)) {
+                _ = try await process.runShell(command)
+            } else {
+                deniedActions.append(PermissionRequest.shell(command: command).label)
+            }
         }
         pendingShell.removeAll()
 
@@ -80,6 +91,16 @@ public actor ActionExecutor {
     }
 
     public var writtenFiles: [String] { filesWritten }
+
+    /// Labels of actions the user declined this turn (fed back to the model so it
+    /// adapts instead of retrying).
+    public var denied: [String] { deniedActions }
+
+    /// True unless a gate is present and returns `.deny`.
+    private func approved(_ request: PermissionRequest) async -> Bool {
+        guard let gate else { return true }
+        return await gate.decide(request) != .deny
+    }
 }
 
 /// Thrown when a line-replace edit's SEARCH block doesn't match the file, so the

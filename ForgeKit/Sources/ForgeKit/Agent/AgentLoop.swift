@@ -21,6 +21,9 @@ public actor AgentLoop {
         public var readFile: @Sendable (String) async -> String?
         /// Call an external MCP tool (server, tool, JSON arguments) → text result.
         public var callMCP: @Sendable (String, String, String) async -> String
+        /// Optional approval gate for side-effectful actions (shell, new deps, MCP).
+        /// nil = allow everything (CLI/tests/dogfood default → behaviour unchanged).
+        public var permissionGate: (any PermissionGate)?
         public var settleDelay: Duration
         public var maxRepairAttempts: Int
 
@@ -34,6 +37,7 @@ public actor AgentLoop {
             onTurnStart: @escaping @Sendable () async -> Void = {},
             readFile: @escaping @Sendable (String) async -> String? = { _ in nil },
             callMCP: @escaping @Sendable (String, String, String) async -> String = { _, _, _ in "" },
+            permissionGate: (any PermissionGate)? = nil,
             settleDelay: Duration = .seconds(2),
             maxRepairAttempts: Int = 3
         ) {
@@ -46,6 +50,7 @@ public actor AgentLoop {
             self.onTurnStart = onTurnStart
             self.readFile = readFile
             self.callMCP = callMCP
+            self.permissionGate = permissionGate
             self.settleDelay = settleDelay
             self.maxRepairAttempts = maxRepairAttempts
         }
@@ -156,12 +161,13 @@ public actor AgentLoop {
             var lastSignature: String?
             var readRounds = 0
             var toolRounds = 0
+            var deniedRounds = 0
 
             while !Task.isCancelled {
                 await deps.onTurnStart()
 
                 continuation.yield(.state(.building))
-                let (rawAssistant, reads, mcpReqs) = try await streamAndApply(messages: messages, continuation)
+                let (rawAssistant, reads, mcpReqs, denied) = try await streamAndApply(messages: messages, continuation)
 
                 // A2b: the model asked to see files before building. Fetch them,
                 // feed them back, and let it continue — not counted as a repair.
@@ -180,10 +186,24 @@ public actor AgentLoop {
                     toolRounds += 1
                     var results: [(server: String, tool: String, output: String)] = []
                     for r in mcpReqs {
-                        results.append((r.server, r.tool, await deps.callMCP(r.server, r.tool, r.arguments)))
+                        let decision = await deps.permissionGate?.decide(.mcp(server: r.server, tool: r.tool)) ?? .allow
+                        if decision == .deny {
+                            results.append((r.server, r.tool, "Brugeren afviste dette værktøjskald — fortsæt uden det."))
+                        } else {
+                            results.append((r.server, r.tool, await deps.callMCP(r.server, r.tool, r.arguments)))
+                        }
                     }
                     messages.append(ChatMessage(role: .assistant, content: rawAssistant))
                     messages.append(MessageBuilder().mcpResultTurn(results))
+                    continue
+                }
+
+                // The user declined a shell command or dependency install. Tell the
+                // model so it adapts instead of retrying — not counted as a repair.
+                if !denied.isEmpty, deniedRounds < 2 {
+                    deniedRounds += 1
+                    messages.append(ChatMessage(role: .assistant, content: rawAssistant))
+                    messages.append(MessageBuilder().deniedTurn(denied))
                     continue
                 }
 
@@ -234,9 +254,9 @@ public actor AgentLoop {
     private func streamAndApply(
         messages: [ChatMessage],
         _ continuation: AsyncStream<AgentEvent>.Continuation
-    ) async throws -> (raw: String, reads: [String], mcp: [(server: String, tool: String, arguments: String)]) {
+    ) async throws -> (raw: String, reads: [String], mcp: [(server: String, tool: String, arguments: String)], denied: [String]) {
         let parser = StreamingArtifactParser()
-        let executor = ActionExecutor(process: deps.process)
+        let executor = ActionExecutor(process: deps.process, gate: deps.permissionGate)
         let splitter = ReasoningSplitter()
         var raw = ""
         var reads: [String] = []
@@ -339,7 +359,7 @@ public actor AgentLoop {
             }
         }
 
-        return (raw, reads, mcpReqs)
+        return (raw, reads, mcpReqs, await executor.denied)
     }
 
     private func apply(

@@ -75,4 +75,56 @@ final class ActionExecutorTests: XCTestCase {
         let final = await mock.fileContents["src/App.tsx"]
         XCTAssertEqual(final, "<h1>New</h1>")
     }
+
+    // Fase 1 (opencode borrow): the permission gate skips denied deps/shell + records them.
+    func testDenyGateSkipsDepsAndShellButFilesStillWrite() async throws {
+        let mock = MockProcessLayer()
+        let executor = ActionExecutor(process: mock, gate: FixedGate(.deny))
+        let events: [ParserEvent] = [
+            .inlineAction(.addDependency(package: "left-pad")),
+            .inlineAction(.shell(command: "rm -rf /")),
+            .fileClose(path: "src/App.tsx", contents: "// ok"),
+            .artifactClose,
+        ]
+        for event in events { try await executor.handle(event) }
+
+        let installs = await mock.installs
+        XCTAssertTrue(installs.isEmpty, "denied deps must not install")
+        let shells = await mock.shells
+        XCTAssertTrue(shells.isEmpty, "denied shell must not run")
+        let writes = await mock.writes
+        XCTAssertEqual(writes.map(\.0), ["src/App.tsx"], "file writes are NOT gated")
+        let denied = await executor.denied
+        XCTAssertEqual(denied.count, 2, "both denied actions recorded for model feedback")
+    }
+
+    func testAllowGateRunsDepsAndShell() async throws {
+        let mock = MockProcessLayer()
+        let executor = ActionExecutor(process: mock, gate: FixedGate(.allow))
+        try await executor.handle(.inlineAction(.addDependency(package: "clsx")))
+        try await executor.handle(.inlineAction(.shell(command: "echo hi")))
+        try await executor.handle(.artifactClose)
+        let installs = await mock.installs
+        XCTAssertEqual(installs, [["clsx"]])
+        let shells = await mock.shells
+        XCTAssertEqual(shells, ["echo hi"])
+        let denied = await executor.denied
+        XCTAssertTrue(denied.isEmpty)
+    }
+
+    func testNoGateAllowsEverything() async throws {
+        let mock = MockProcessLayer()
+        let executor = ActionExecutor(process: mock)   // gate nil = allow-all (default)
+        try await executor.handle(.inlineAction(.addDependency(package: "clsx")))
+        try await executor.handle(.artifactClose)
+        let installs = await mock.installs
+        XCTAssertEqual(installs, [["clsx"]])
+    }
+}
+
+/// A gate that always returns the same decision — for testing.
+private struct FixedGate: PermissionGate {
+    let decision: PermissionDecision
+    init(_ decision: PermissionDecision) { self.decision = decision }
+    func decide(_ request: PermissionRequest) async -> PermissionDecision { decision }
 }

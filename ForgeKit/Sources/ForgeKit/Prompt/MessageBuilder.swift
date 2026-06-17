@@ -49,6 +49,16 @@ public struct MessageBuilder: Sendable {
         return ChatMessage(role: .user, content: body)
     }
 
+    /// Tells the model the user declined certain side-effectful actions, so it
+    /// adapts instead of retrying them.
+    public func deniedTurn(_ denied: [String]) -> ChatMessage {
+        var body = "The user DECLINED to run the following action(s):\n"
+        for action in denied { body += "- \(action)\n" }
+        body += "\nDo NOT attempt them again. Continue without them — e.g. write the code so it "
+            + "doesn't need that dependency or command, or proceed with what's already in place."
+        return ChatMessage(role: .user, content: body)
+    }
+
     /// A follow-up user turn that feeds back the errors for self-correction.
     /// When `files` is supplied (A11), the current contents of the failing files are
     /// inlined so the model repairs against the real code instead of guessing.
