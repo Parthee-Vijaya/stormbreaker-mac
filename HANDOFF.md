@@ -83,6 +83,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `79e843c` 2026-06-17 — TUI P6 (opencode/nanocoder): wire the real AgentLoop + permission modal
 - `4ef787e` 2026-06-17 — TUI P5 (opencode/nanocoder): full-screen event loop
 - `64a562c` 2026-06-17 — TUI P4 (opencode/nanocoder): input decoder
 - `9d9bc7c` 2026-06-17 — TUI P3 (opencode/nanocoder): layout solver + Forge screen skeleton
@@ -102,5 +103,4 @@ ollama list | grep qwen2.5-coder
 - `10a7ced` 2026-06-17 — docs(handoff): opdater commit-log
 - `0ffcd2b` 2026-06-17 — feat(metrics): vis metrics pr. besked direkte i chatten
 - `3e75a76` 2026-06-17 — docs(handoff): opdater commit-log
-- `7f822f5` 2026-06-17 — feat(metrics): verbose mode — tokens, TTFT, tok/s pr. kald/besked/session
 <!-- COMMITLOG:END -->

@@ -18,6 +18,7 @@ enum AppEvent: Sendable {
     case tick
     case agent(AgentEvent)
     case permission(PermissionRequest, CheckedContinuation<PermissionDecision, Never>)
+    case turnSnapshot(String)
     case turnEnded
 }
 
@@ -46,13 +47,14 @@ struct TUIPermissionGate: PermissionGate {
 final class TUIApp {
     struct Line { enum Role { case user, assistant, system, error }; var role: Role; var text: String }
 
-    // Palette (generalized into ANSITheme in phase 7).
-    private let accent = Style(fg: .hex(0x9B87F5))
-    private let accentBold = Style(fg: .hex(0x9B87F5), bold: true)
-    private let dimStyle = Style(dim: true)
-    private let errStyle = Style(fg: .hex(0xE05252))
-    private let okStyle = Style(fg: .hex(0x57B85A))
-    private let warnStyle = Style(fg: .hex(0xE0A030), bold: true)
+    // Palette — sourced from the active theme (P7).
+    private var theme: ANSITheme
+    private var accent: Style { theme.accentStyle }
+    private var accentBold: Style { theme.accentBold }
+    private var dimStyle: Style { theme.dimStyle }
+    private var errStyle: Style { theme.errorStyle }
+    private var okStyle: Style { theme.okStyle }
+    private var warnStyle: Style { theme.warnStyle }
 
     private let engine: Engine
     private let modelName: String
@@ -73,6 +75,7 @@ final class TUIApp {
     private var assistantLineIndex: Int?
     private var sessionTokens = 0
     private var spinnerFrame = 0
+    private var turnSHAs: [String] = []        // pre-turn checkpoint SHAs (for /diff + /undo, P9/P11)
     private var pendingPermission: (PermissionRequest, CheckedContinuation<PermissionDecision, Never>)?
     private var turnTask: Task<Void, Never>?
     private var running = true
@@ -83,11 +86,12 @@ final class TUIApp {
 
     private static let spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
-    init(size: Size, engine: Engine, modelName: String, verbose: Bool) {
+    init(size: Size, engine: Engine, modelName: String, verbose: Bool, theme: ANSITheme = .midnight) {
         self.size = size
         self.engine = engine
         self.modelName = modelName
         self.verbose = verbose
+        self.theme = theme
         transcript.append(Line(role: .system,
             text: "forge — beskriv hvad du vil bygge og tryk Enter. Ctrl-C afbryder/afslutter."))
     }
@@ -118,6 +122,7 @@ final class TUIApp {
             case .tick:                 if isBusy { spinnerFrame += 1; needsRender = true }
             case .agent(let e):         applyAgent(e)
             case .permission(let r, let c): pendingPermission = (r, c); status = "Tilladelse kræves"; needsRender = true
+            case .turnSnapshot(let sha): turnSHAs.append(sha)
             case .turnEnded:            endTurn()
             }
             if !running { break }
@@ -180,13 +185,14 @@ final class TUIApp {
         transcript.append(Line(role: .user, text: text))
         pendingUser = text
         isBusy = true; status = "Tænker…"; spinnerFrame = 0
-        let gate = TUIPermissionGate(channel: cont)
-        let deps = makeDeps(engine, mode: .build, gate: gate)
-        let loop = AgentLoop(deps)
+        let engine = self.engine
         let prior = history
-        let stream = loop.run(userPrompt: text, history: prior, mode: .build)
         turnTask = Task {
-            for await ev in stream { cont.yield(.agent(ev)) }
+            // Snapshot the pre-turn state first, so /diff + /undo (P9/P11) can compare.
+            if let sha = await engine.checkpoints.snapshot(label: text) { cont.yield(.turnSnapshot(sha)) }
+            let gate = TUIPermissionGate(channel: cont)
+            let loop = AgentLoop(makeDeps(engine, mode: .build, gate: gate))
+            for await ev in loop.run(userPrompt: text, history: prior, mode: .build) { cont.yield(.agent(ev)) }
             cont.yield(.turnEnded)
         }
         needsRender = true

@@ -119,6 +119,7 @@ struct Engine: Sendable {
     let collector: ErrorCollector
     var config: ModelConfig            // var: mid-session model switch (P10) reassigns this
     let mcp: MCPManager
+    let checkpoints: CheckpointManager // pre-turn snapshots → /diff + /undo + /restore
 }
 
 /// Open `dir` as a project; scaffold the framework template only if it isn't one yet.
@@ -136,7 +137,8 @@ func prepareEngine(dir: URL, framework: Framework, config: ModelConfig) async th
     await mcp.start(projectRoot: dir)
     if !mcp.isEmpty { info("MCP: \(mcp.availableTools.count) eksternt værktøj(er) tilgængelige") }
     return Engine(workspace: workspace, devServer: devServer,
-                  collector: ErrorCollector(devServer: devServer), config: config, mcp: mcp)
+                  collector: ErrorCollector(devServer: devServer), config: config, mcp: mcp,
+                  checkpoints: CheckpointManager(root: dir))
 }
 
 func makeDeps(_ engine: Engine, mode: AgentLoop.Mode, gate: (any PermissionGate)? = nil,
