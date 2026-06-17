@@ -83,6 +83,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `fe54620` 2026-06-17 — TUI: opencode-style redesign + first-run onboarding
 - `6749c15` 2026-06-17 — forge CLI: one-command install script (build release + symlink onto PATH)
 - `50f7c05` 2026-06-17 — TUI P12 (opencode/nanocoder): slash-menu + themes + /init + flip to default
 - `c444ef2` 2026-06-17 — TUI P11 (opencode/nanocoder): session resume + undo/restore
@@ -102,5 +103,4 @@ ollama list | grep qwen2.5-coder
 - `982cbc1` 2026-06-17 — Fase 4a (opencode): markdown chat-eksport
 - `8702e9a` 2026-06-17 — Fase 3 (opencode): AGENTS.md-interop + @file-mentions
 - `b6e3ea2` 2026-06-17 — Fase 2a (opencode): editor-diagnostics (tsc squiggles)
-- `c0dc38b` 2026-06-17 — Fase 2b (opencode): cost-tracking (kr/$) på metrics
 <!-- COMMITLOG:END -->

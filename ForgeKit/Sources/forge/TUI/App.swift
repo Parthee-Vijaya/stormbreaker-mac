@@ -331,7 +331,7 @@ final class TUIApp {
     // MARK: - Rendering
 
     private var base: Style { theme.base }
-    private static let logo = ["┏━╸┏━┓┏━┓┏━╸┏━╸", "┣╸ ┃ ┃┣┳┛┃╺┓┣╸ ", "┗━╸┗━┛┗┛┗┗━┛┗━╸"]
+    private static let logo = ["█▀▀ █▀█ █▀█ █▀▀ █▀▀", "█▀▀ █ █ █▀▄ █▄█ █▀▀", "▀   ▀▀▀ ▀ ▀ ▀▀▀ ▀▀▀"]
 
     private func render(force: Bool = false) {
         let now = DispatchTime.now()
