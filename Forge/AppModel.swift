@@ -49,6 +49,19 @@ final class AppModel {
         var questions: [PlanQuestion] = []   // clarifying questions → tappable chips
         var checkpoint: String?      // shadow-git sha snapshotted before this turn ran
         var imageDataURLs: [String] = []   // B4: images the user attached to this turn
+        var metrics: MessageMetrics?       // per-message model metrics (tokens, TTFT, tok/s)
+    }
+
+    /// Aggregated model metrics for one assistant message (a turn may make several
+    /// calls — read/tool rounds + repairs — summed here). Persisted with the chat.
+    struct MessageMetrics: Codable, Equatable {
+        var calls = 0
+        var promptTokens = 0
+        var completionTokens = 0
+        var totalSeconds = 0.0
+        var firstTTFT: Double?
+        var totalTokens: Int { promptTokens + completionTokens }
+        var tokensPerSecond: Double { totalSeconds > 0 ? Double(completionTokens) / totalSeconds : 0 }
     }
 
     enum PreviewWidth: CaseIterable {
@@ -1987,6 +2000,15 @@ final class AppModel {
                 lastMetrics = m
                 sessionTokens += m.totalTokens
                 sessionCalls += 1
+                if messages.indices.contains(assistantIndex) {
+                    var mm = messages[assistantIndex].metrics ?? MessageMetrics()
+                    mm.calls += 1
+                    mm.promptTokens += m.promptTokens
+                    mm.completionTokens += m.completionTokens
+                    mm.totalSeconds += m.totalSeconds
+                    if mm.firstTTFT == nil { mm.firstTTFT = m.timeToFirstTokenSeconds }
+                    messages[assistantIndex].metrics = mm
+                }
             }
         }
         endStreaming()
@@ -2058,6 +2080,15 @@ final class AppModel {
                 lastMetrics = m
                 sessionTokens += m.totalTokens
                 sessionCalls += 1
+                if messages.indices.contains(assistantIndex) {
+                    var mm = messages[assistantIndex].metrics ?? MessageMetrics()
+                    mm.calls += 1
+                    mm.promptTokens += m.promptTokens
+                    mm.completionTokens += m.completionTokens
+                    mm.totalSeconds += m.totalSeconds
+                    if mm.firstTTFT == nil { mm.firstTTFT = m.timeToFirstTokenSeconds }
+                    messages[assistantIndex].metrics = mm
+                }
             default: break
             }
         }

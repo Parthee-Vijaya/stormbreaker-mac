@@ -193,6 +193,15 @@ private struct MessageView: View {
 
     private struct DiffPayload: Identifiable { let id = UUID(); let text: String }
 
+    /// Subtle per-message metrics line: tokens · throughput · TTFT (· kald if >1).
+    private static func metricsText(_ m: AppModel.MessageMetrics) -> String {
+        var parts = ["\(AppModel.formatTokens(m.totalTokens)) tok"]
+        if m.tokensPerSecond > 0 { parts.append(String(format: "%.0f tok/s", m.tokensPerSecond)) }
+        if let t = m.firstTTFT { parts.append(String(format: "TTFT %.2fs", t)) }
+        if m.calls > 1 { parts.append("\(m.calls) kald") }
+        return parts.joined(separator: " · ")
+    }
+
     var body: some View {
         if message.role == .user {
             HStack {
@@ -257,6 +266,12 @@ private struct MessageView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.inkFaint)
                     .buttonStyle(.plain)
+                }
+                if let mm = message.metrics, mm.calls > 0 {
+                    Text(Self.metricsText(mm))
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Theme.inkFaint)
+                        .textSelection(.enabled)
                 }
             }
             .confirmationDialog("Roll back to before this change?",
