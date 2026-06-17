@@ -44,6 +44,7 @@ struct ForgeConfig: Codable {
     var baseURL: String?
     var apiKey: String?
     var verbose: Bool?
+    var theme: String?
 
     static func load() -> ForgeConfig {
         let path = configDir().appendingPathComponent("config.json")
@@ -51,6 +52,14 @@ struct ForgeConfig: Codable {
               let cfg = try? JSONDecoder().decode(ForgeConfig.self, from: data)
         else { return ForgeConfig() }
         return cfg
+    }
+
+    func save() {
+        try? FileManager.default.createDirectory(at: configDir(), withIntermediateDirectories: true)
+        let enc = JSONEncoder(); enc.outputFormatting = .prettyPrinted
+        if let data = try? enc.encode(self) {
+            try? data.write(to: configDir().appendingPathComponent("config.json"), options: .atomic)
+        }
     }
 }
 
@@ -348,7 +357,9 @@ let helpText = """
   --api-key KEY        cloud-nøgle (ellers $FORGE_CLOUD_API_KEY eller config)
   --plan               kun planlæg (ingen filer skrives)
   --no-serve           afslut efter build i stedet for at holde preview kørende (CI)
-  --plain              ingen farver/ANSI (CI-venligt)
+  --plain              ingen farver/ANSI (CI-venligt; bruger linje-REPL, ikke TUI)
+  --no-tui             brug den simple linje-REPL i stedet for fuldskærms-TUI
+  --resume             genoptag seneste session (forge chat i TUI)
   --verbose            vis metrics pr. kald (tokens, TTFT, tok/s) + session-total
   --yes                spørg ikke før shell-kommandoer/pakker/MCP (interaktiv default: spørg)
 
@@ -423,18 +434,20 @@ func cmdChat(_ args: Args, _ cfg: ForgeConfig) async {
 
     let verbose = args.flag("verbose") || cfg.verbose == true
 
-    // Full-screen TUI — opt-in via --tui for now; phase 12 makes it the TTY default.
-    if args.flag("tui"), !plain, isTTY {
+    // Full-screen TUI is the default on an interactive TTY; --no-tui / --plain / a
+    // pipe fall back to the line REPL (byte-identical to before).
+    if !plain, isTTY, !args.flag("no-tui") {
         // --resume reloads the prior session; a local model from it wins unless --model was given.
         let resume = args.flag("resume") ? SessionFile.load(projectDir: dir) : nil
         if let resume, args.option("model") == nil {
             engine.config = resume.resolvedConfig(fallback: config)
         }
+        let theme = ANSITheme.named(cfg.theme ?? "") ?? .midnight
         let term = Terminal()
         do { try term.enter() } catch { fail("\(error)") }
         await TUIApp(size: Size(cols: term.cols, rows: term.rows),
                      engine: engine, modelName: engine.config.displayName, framework: framework.displayName,
-                     verbose: verbose, resume: resume).run()
+                     verbose: verbose, theme: theme, resume: resume).run()
         term.restore()
         await engine.devServer.shutdown()
         return

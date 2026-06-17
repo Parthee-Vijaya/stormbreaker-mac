@@ -180,7 +180,13 @@ final class TUIApp {
         case .down:  scroll = max(0, scroll - 1); needsRender = true
         case .pageUp:   scroll += max(1, size.rows - 4); needsRender = true
         case .pageDown: scroll = max(0, scroll - max(1, size.rows - 4)); needsRender = true
-        case .tab:   sidePane = (sidePane == .live) ? .info : (sidePane == .info ? .diff : .live); needsRender = true
+        case .tab:
+            if input.hasPrefix("/") {                 // complete to the first matching command
+                if let m = Self.slashCommands.first(where: { $0.0.hasPrefix(input.lowercased()) }) { input = m.0 + " "; cursor = input.count }
+            } else {
+                sidePane = (sidePane == .live) ? .info : (sidePane == .info ? .diff : .live)
+            }
+            needsRender = true
         case .enter:
             let line = input.trimmingCharacters(in: .whitespaces)
             if line.hasPrefix("/") {                  // slash commands work even mid-turn (read-only)
@@ -370,6 +376,7 @@ final class TUIApp {
         } else if modelChoices != nil {
             drawModelModal(buf)
         } else {
+            if input.hasPrefix("/") { drawSlashMenu(buf, anchor: layout.slashAnchor) }   // discovery popover
             let before = String(input.prefix(cursor))
             let curX = min(layout.input.x + TextWidth.width(prompt) + TextWidth.width(before), layout.input.maxX - 1)
             cursorPt = Point(x: curX, y: layout.input.y)
@@ -461,8 +468,10 @@ final class TUIApp {
         case "undo":       restoreToTurn("")
         case "restore":    restoreToTurn(arg)
         case "checkpoints", "cp": listCheckpoints()
+        case "theme":      switchTheme(arg)
+        case "init":       writeAgentsFile()
         case "quit", "q":  running = false
-        case "help":       transcript.append(Line(role: .system, text: "/diff [n] · /model · /undo · /restore [n] · /checkpoints · /quit"))
+        case "help":       transcript.append(Line(role: .system, text: Self.slashCommands.map { "\($0.0) — \($0.1)" }.joined(separator: "\n")))
         default:           transcript.append(Line(role: .system, text: "ukendt kommando: /\(cmd) — prøv /help"))
         }
     }
@@ -569,6 +578,59 @@ final class TUIApp {
         transcript.append(Line(role: .system, text: "checkpoints:"))
         for (i, t) in users.enumerated() {
             transcript.append(Line(role: .system, text: "  \(i + 1)) \(t.checkpointSHA?.prefix(7) ?? "—") · \(t.content.prefix(50))"))
+        }
+    }
+
+    static let slashCommands: [(String, String)] = [
+        ("/diff", "vis ændringer fra sidste tur"),
+        ("/model", "skift AI-model"),
+        ("/undo", "fortryd sidste tur"),
+        ("/restore", "gendan til tur n"),
+        ("/checkpoints", "liste over ture"),
+        ("/theme", "skift farvetema"),
+        ("/init", "skriv AGENTS.md"),
+        ("/help", "vis kommandoer"),
+        ("/quit", "afslut"),
+    ]
+
+    private func switchTheme(_ arg: String) {
+        if arg.isEmpty {
+            let names = ANSITheme.all.map { $0.name.lowercased() }.joined(separator: " · ")
+            transcript.append(Line(role: .system, text: "temaer: \(names)  (nu: \(theme.name.lowercased()))"))
+        } else if let t = ANSITheme.named(arg) {
+            theme = t; prev = nil                                   // force a full repaint in the new colors
+            var c = ForgeConfig.load(); c.theme = t.name; c.save()  // remember the choice
+            transcript.append(Line(role: .system, text: "tema: \(t.name)"))
+        } else {
+            transcript.append(Line(role: .system, text: "ukendt tema — prøv: " + ANSITheme.all.map { $0.name.lowercased() }.joined(separator: ", ")))
+        }
+    }
+
+    private func writeAgentsFile() {
+        let url = engine.workspace.root.appendingPathComponent("AGENTS.md")
+        if FileManager.default.fileExists(atPath: url.path) {
+            transcript.append(Line(role: .system, text: "AGENTS.md findes allerede — redigér den i editoren.")); return
+        }
+        do {
+            try AgentsTemplate.render(project: shortName(engine.workspace.root.path), framework: framework)
+                .write(to: url, atomically: true, encoding: .utf8)
+            transcript.append(Line(role: .system, text: "oprettede AGENTS.md — reglerne læses automatisk hver tur."))
+        } catch {
+            transcript.append(Line(role: .error, text: "kunne ikke skrive AGENTS.md"))
+        }
+    }
+
+    /// Discovery popover above the input while typing a / command.
+    private func drawSlashMenu(_ buf: ScreenBuffer, anchor: Rect) {
+        let matches = Self.slashCommands.filter { $0.0.hasPrefix(input.lowercased()) }
+        guard !matches.isEmpty, anchor.h >= 3 else { return }
+        let h = min(anchor.h, matches.count + 2), w = min(anchor.w, 46)
+        let rect = Rect(x: anchor.x, y: anchor.maxY - h, w: w, h: h)
+        buf.fill(rect, " ", .default)
+        buf.box(rect, accent, title: "kommandoer")
+        for (i, c) in matches.prefix(h - 2).enumerated() {
+            buf.text(TextWidth.truncate("\(c.0)  \(c.1)", toWidth: w - 4),
+                     x: rect.x + 2, y: rect.y + 1 + i, i == 0 ? accentBold : dimStyle, clip: rect)
         }
     }
 
