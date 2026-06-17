@@ -498,6 +498,23 @@ func cmdMCP(_ args: Args, _ cfg: ForgeConfig) async {
     manager.shutdownAll()
 }
 
+// MARK: - TUI selftest (hidden)
+
+/// `forge __tuicheck` — phase-1 lifecycle probe: enter raw mode + alt screen,
+/// draw a centered banner, wait for q / Ctrl-C / Ctrl-D, restore. Used by the
+/// pty test harness to prove the terminal is always restored (incl. on SIGTERM).
+func cmdTUICheck() {
+    let term = Terminal()
+    do { try term.enter() } catch { fail("\(error)") }
+    defer { term.restore() }
+    let msg = "Forge TUI ✓   \(term.cols)×\(term.rows)   — tryk q for at afslutte"
+    TUIOutput.emit("\u{1B}[\(max(1, term.rows / 2));\(max(1, (term.cols - msg.count) / 2))H" + msg)
+    var byte: UInt8 = 0
+    while read(STDIN_FILENO, &byte, 1) == 1 {
+        if byte == UInt8(ascii: "q") || byte == 3 || byte == 4 { break }   // q · Ctrl-C · Ctrl-D
+    }
+}
+
 // MARK: - Dispatch
 
 let argv = Array(CommandLine.arguments.dropFirst())
@@ -516,6 +533,7 @@ case "build":  await cmdBuild(rest, cfg)
 case "chat":   await cmdChat(rest, cfg)
 case "skills": cmdSkills(rest, cfg)
 case "mcp":    await cmdMCP(rest, cfg)
+case "__tuicheck": cmdTUICheck()
 default:
     // `forge "<prompt>"` is shorthand for `forge build "<prompt>"`.
     if command.hasPrefix("--") { fail("ukendt kommando. Prøv: forge --help") }
