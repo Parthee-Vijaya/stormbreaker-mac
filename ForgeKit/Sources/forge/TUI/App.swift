@@ -63,6 +63,7 @@ final class TUIApp {
     private var modelName: String
     private let framework: String
     private let verbose: Bool
+    private let skills: [Skill]                 // available presets (Kontekst sidebar)
     private var size: Size
     private var prev: ScreenBuffer?
 
@@ -74,14 +75,21 @@ final class TUIApp {
     private var status = "Klar."
     private var liveFile: String?              // file currently streaming (side pane)
     private var liveBuffer = ""                // its contents so far
-    enum SidePane { case live, info, diff }
-    private var sidePane: SidePane = .live     // Tab cycles live → info → diff; /diff jumps here
+    enum SidePane { case context, live, diff }
+    private var sidePane: SidePane = .context  // Tab cycles context → live → diff; auto-→live while streaming
     private var diffText = ""                   // loaded by /diff
     private var isBusy = false
     private var pendingUser: String?
     private var currentAssistant: String?
     private var assistantLineIndex: Int?
-    private var sessionTokens = 0
+    // Session metrics (verbose) — surfaced in the Kontekst sidebar.
+    private var mCalls = 0, mPrompt = 0, mCompletion = 0
+    private var mSeconds = 0.0
+    private var mLastTTFT: Double?
+    private var mCostUSD = 0.0
+    private var sessionTokens: Int { mPrompt + mCompletion }
+    private var tokPerSec: Double { mSeconds > 0 ? Double(mCompletion) / mSeconds : 0 }
+    private var changedFiles: [String] = []     // files written this session
     private var spinnerFrame = 0
     private var lastSHA: String?               // most recent pre-turn snapshot (for /diff)
     private var sessionTurns: [SessionFile.Turn] = []   // completed turns (user+assistant pairs), persisted
@@ -106,6 +114,7 @@ final class TUIApp {
         self.framework = framework
         self.verbose = verbose
         self.theme = theme
+        self.skills = SkillStore.load(projectRoot: engine.workspace.root)
         if firstRun {
             onboarding = true
             onboardThemeIdx = ANSITheme.all.firstIndex { $0.name == theme.name } ?? 0
@@ -191,7 +200,7 @@ final class TUIApp {
             if input.hasPrefix("/") {                 // complete to the first matching command
                 if let m = Self.slashCommands.first(where: { $0.0.hasPrefix(input.lowercased()) }) { input = m.0 + " "; cursor = input.count }
             } else {
-                sidePane = (sidePane == .live) ? .info : (sidePane == .info ? .diff : .live)
+                sidePane = (sidePane == .context) ? .live : (sidePane == .live ? .diff : .context)
             }
             needsRender = true
         case .enter:
@@ -265,6 +274,7 @@ final class TUIApp {
         pendingUser = nil; currentAssistant = nil; assistantLineIndex = nil
         isBusy = false
         if status.hasPrefix("Tænker") || status.hasPrefix("…") { status = "Klar." }
+        if sidePane == .live { sidePane = .context }     // back to context after the build
         turnTask = nil
         needsRender = true
     }
@@ -293,17 +303,23 @@ final class TUIApp {
             currentAssistant = (currentAssistant ?? "") + t
             if let i = assistantLineIndex, transcript.indices.contains(i) { transcript[i].text = currentAssistant ?? "" }
         case .fileWriting(let path):
-            liveFile = path; liveBuffer = ""                 // start streaming into the side pane
+            liveFile = path; liveBuffer = ""; sidePane = .live   // watch the code as it streams
         case .fileChunk(let path, let text):
             if path == liveFile { liveBuffer += text }
         case .fileWritten(let path):
             if liveFile != path { liveFile = path }          // line-replace edits may not stream chunks
+            if !changedFiles.contains(path) { changedFiles.append(path) }
             transcript.append(Line(role: .system, text: "✎ \(path)"))
         case .previewReady(let url):
             transcript.append(Line(role: .system, text: "→ preview: \(url.absoluteString)"))
             status = "kører · \(url.absoluteString)"
         case .metrics(let m):
-            sessionTokens += m.totalTokens
+            mCalls += 1
+            mPrompt += m.promptTokens
+            mCompletion += m.completionTokens
+            mSeconds += m.totalSeconds
+            if let t = m.timeToFirstTokenSeconds { mLastTTFT = t }
+            if let c = engine.config.cost(promptTokens: m.promptTokens, completionTokens: m.completionTokens) { mCostUSD += c }
         case .reasoning, .usage:
             break
         }
@@ -538,14 +554,77 @@ final class TUIApp {
                     x = buf.text(seg, x: x, y: inner.y + i, st, clip: inner)
                 }
             }
-        default:
-            buf.box(rect, dimStyle, title: "Info")
-            let inner = rect.inset(1); guard inner.h > 0 else { return }
-            buf.text("model: \(modelName)", x: inner.x + 1, y: inner.y, dimStyle, clip: inner)
-            buf.text("Tab skifter panel", x: inner.x + 1, y: inner.y + 2, dimStyle, clip: inner)
-            buf.text("/diff efter et build", x: inner.x + 1, y: inner.y + 3, dimStyle, clip: inner)
-            if !userTurns.isEmpty { buf.text("\(userTurns.count) checkpoint(s)", x: inner.x + 1, y: inner.y + 4, dimStyle, clip: inner) }
+        case .context, .live:                                    // .live with no file yet → context
+            renderContext(buf, rect)
         }
+    }
+
+    /// The persistent context sidebar (opencode-style): what's being worked on right
+    /// now — project, token usage, changed files, skills, and active connectors.
+    private func renderContext(_ buf: ScreenBuffer, _ rect: Rect) {
+        buf.box(rect, dimStyle, title: "Kontekst")
+        let inner = rect.inset(1)
+        guard inner.h > 0, inner.w > 10 else { return }
+        var y = inner.y
+        let x = inner.x + 1
+        let w = inner.w - 2
+        func head(_ s: String) { guard y < inner.maxY else { return }; buf.text(s, x: x, y: y, theme.accentBold, clip: inner); y += 1 }
+        func line(_ s: String, _ st: Style? = nil) { guard y < inner.maxY else { return }; buf.text(TextWidth.truncate(s, toWidth: w), x: x, y: y, st ?? base, clip: inner); y += 1 }
+        func gap() { if y < inner.maxY { y += 1 } }
+
+        head("PROJEKT")
+        line("\(shortName(engine.workspace.root.path)) · \(framework)")
+        line(prettyPath(engine.workspace.root.path), dimStyle)
+        gap()
+
+        head("FORBRUG")
+        if mCalls == 0 {
+            line("ingen kald endnu", dimStyle)
+        } else {
+            line("\(fmtTok(sessionTokens)) tok · \(mCalls) kald")
+            line("\(fmtTok(mPrompt))→\(fmtTok(mCompletion)) · \(Int(tokPerSec)) tok/s", dimStyle)
+            line("TTFT \(fmtTTFT(mLastTTFT)) · \(fmtCost())", dimStyle)
+        }
+        gap()
+
+        head("FILER ÆNDRET (\(changedFiles.count))")
+        if changedFiles.isEmpty { line("ingen endnu", dimStyle) }
+        else {
+            let shown = changedFiles.suffix(6)
+            for f in shown { line(relativePath(f), theme.on(theme.ok)) }
+            if changedFiles.count > shown.count { line("+\(changedFiles.count - shown.count) flere", dimStyle) }
+        }
+        gap()
+
+        head("SKILLS (\(skills.count))")
+        line(skills.isEmpty ? "ingen" : skills.prefix(5).map { $0.id }.joined(separator: " · "), dimStyle)
+        gap()
+
+        let tools = engine.mcp.availableTools
+        head("CONNECTORS")
+        if tools.isEmpty { line("ingen aktive (MCP)", dimStyle) }
+        else {
+            let servers = Array(Set(tools.map { $0.server })).sorted()
+            line("\(tools.count) værktøj · \(servers.count) server", dimStyle)
+            for s in servers.prefix(3) { line("· \(s)", dimStyle) }
+        }
+    }
+
+    // MARK: - Sidebar formatting helpers
+
+    private func prettyPath(_ p: String) -> String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let s = p.hasPrefix(home) ? "~" + p.dropFirst(home.count) : p
+        return s.count <= 30 ? s : "…" + s.suffix(29)
+    }
+    private func relativePath(_ p: String) -> String {
+        let root = engine.workspace.root.path
+        return p.hasPrefix(root) ? String(p.dropFirst(root.count).drop(while: { $0 == "/" })) : shortName(p)
+    }
+    private func fmtTTFT(_ s: Double?) -> String { s.map { String(format: "%.2fs", $0) } ?? "—" }
+    private func fmtCost() -> String {
+        if engine.config.source != .cloud { return "gratis" }
+        return mCostUSD > 0 ? String(format: "≈ $%.3f", mCostUSD) : "—"
     }
 
     // MARK: - Slash commands (minimal; the full menu lands in P12)
