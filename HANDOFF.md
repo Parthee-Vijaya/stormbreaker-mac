@@ -5,7 +5,7 @@
 > Du skriver en prompt → en AI-agent skriver et React+Vite+TS+Tailwind-projekt til disk
 > → Forge kører det → preview opdaterer via HMR.
 
-- **Sidst opdateret:** 2026-06-17
+- **Sidst opdateret:** 2026-06-18
 - **Status:** Walking skeleton + **Lovable-stil UI** KOMPLET og verificeret i GUI. Empty-state hero → split-layout når der bygges; synlig tekst (tvunget lyst tema), fil-chips pr. besked, preview-toolbar (device-toggles/URL/refresh/åbn-i-browser), HMR-edits. **Multi-model**: auto-discovery af Ollama + LM Studio (verificeret live). **Kode-visning + fil-træ** (redigerbar editor → HMR) og **multi-projekt + historik** (skift/opret/slet, persistent pr. projekt) — begge verificeret live. **nanocoder-køreplan leveret**: `forge` CLI, bruger-skills (CLI+GUI), og MCP tool-calling — agenten kan kalde eksterne MCP-værktøjer midt i et build (e2e-verificeret) + eksterne agenter kan drive Forge via `forge-mcp`. Alle 112 ForgeKit-tests grønne; Mac-app + CLI bygger.
 - **Branch:** main · committed: skeleton + Lovable-UI + LM Studio-discovery (intet remote endnu)
 
@@ -83,6 +83,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `788f696` 2026-06-17 — Reviewer RA1 (agentic-SDLC borrow): ReviewAgent core + parser
 - `1d5837b` 2026-06-17 — TUI: persistent Kontekst sidebar (opencode-style)
 - `1259a7a` 2026-06-17 — TUI: clearer FORGE wordmark logo (half-block font)
 - `fe54620` 2026-06-17 — TUI: opencode-style redesign + first-run onboarding
@@ -102,5 +103,4 @@ ollama list | grep qwen2.5-coder
 - `6c4a8dd` 2026-06-17 — docs(handoff): opdater commit-log
 - `4559bd3` 2026-06-17 — Fase 4c (opencode): steer-API — styr Forge fra iPhone/curl
 - `43801d7` 2026-06-17 — Fase 4b (opencode): prettier-ved-gem (opt-in)
-- `982cbc1` 2026-06-17 — Fase 4a (opencode): markdown chat-eksport
 <!-- COMMITLOG:END -->

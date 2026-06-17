@@ -361,6 +361,7 @@ let helpText = """
   --plain              ingen farver/ANSI (CI-venligt; bruger linje-REPL, ikke TUI)
   --no-tui             brug den simple linje-REPL i stedet for fuldskærms-TUI
   --resume             genoptag seneste session (forge chat i TUI)
+  --no-review          slå reviewer-agenten fra (kører ellers efter hvert build)
   --verbose            vis metrics pr. kald (tokens, TTFT, tok/s) + session-total
   --yes                spørg ikke før shell-kommandoer/pakker/MCP (interaktiv default: spørg)
 
@@ -449,7 +450,8 @@ func cmdChat(_ args: Args, _ cfg: ForgeConfig) async {
         await TUIApp(size: Size(cols: term.cols, rows: term.rows),
                      engine: engine, modelName: engine.config.displayName, framework: framework.displayName,
                      verbose: verbose, theme: theme, resume: resume,
-                     firstRun: cfg.onboarded != true && resume == nil).run()
+                     firstRun: cfg.onboarded != true && resume == nil,
+                     autoReview: !args.flag("no-review")).run()
         term.restore()
         await engine.devServer.shutdown()
         return

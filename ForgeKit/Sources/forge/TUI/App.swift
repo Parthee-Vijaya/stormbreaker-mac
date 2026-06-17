@@ -22,6 +22,7 @@ enum AppEvent: Sendable {
     case diffLoaded(String)
     case modelsLoaded([ModelConfig])
     case restored(Int, Bool)
+    case reviewLoaded(ReviewReport)
     case turnEnded
 }
 
@@ -48,7 +49,7 @@ struct TUIPermissionGate: PermissionGate {
 
 @MainActor
 final class TUIApp {
-    struct Line { enum Role { case user, assistant, system, error }; var role: Role; var text: String }
+    struct Line { enum Role { case user, assistant, system, error, warn }; var role: Role; var text: String }
 
     // Palette — sourced from the active theme (P7).
     private var theme: ANSITheme
@@ -96,6 +97,10 @@ final class TUIApp {
     private var modelChoices: [ModelConfig]?   // non-nil while the /model picker is open
     private var onboarding = false             // first-run welcome + theme picker
     private var onboardThemeIdx = 0
+    private let autoReview: Bool               // run a reviewer pass after each build
+    private var reviewing = false
+    private var lastRequest: String?           // the just-finished turn's prompt (for /review)
+    private var lastReview: ReviewReport?      // last reviewer result (Kontekst sidebar)
     private var pendingPermission: (PermissionRequest, CheckedContinuation<PermissionDecision, Never>)?
     private var turnTask: Task<Void, Never>?
     private var running = true
@@ -107,13 +112,14 @@ final class TUIApp {
     private static let spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
     init(size: Size, engine: Engine, modelName: String, framework: String, verbose: Bool,
-         theme: ANSITheme = .midnight, resume: SessionFile? = nil, firstRun: Bool = false) {
+         theme: ANSITheme = .midnight, resume: SessionFile? = nil, firstRun: Bool = false, autoReview: Bool = true) {
         self.size = size
         self.engine = engine
         self.modelName = modelName
         self.framework = framework
         self.verbose = verbose
         self.theme = theme
+        self.autoReview = autoReview
         self.skills = SkillStore.load(projectRoot: engine.workspace.root)
         if firstRun {
             onboarding = true
@@ -157,13 +163,14 @@ final class TUIApp {
             switch ev {
             case .key(let k):           handle(k)
             case .resize(let s):        size = s; prev = nil; needsRender = true
-            case .tick:                 if isBusy { spinnerFrame += 1; needsRender = true }
+            case .tick:                 if isBusy || reviewing { spinnerFrame += 1; needsRender = true }
             case .agent(let e):         applyAgent(e)
             case .permission(let r, let c): pendingPermission = (r, c); status = "Tilladelse kræves"; needsRender = true
             case .turnSnapshot(let sha): lastSHA = sha
             case .diffLoaded(let d):    diffText = d; sidePane = .diff; status = "Diff"; needsRender = true
             case .modelsLoaded(let ms): modelChoices = Array(ms.prefix(9)); status = "Vælg model (1–\(min(ms.count, 9))) · Esc"; needsRender = true
             case .restored(let n, let ok): applyRestore(n, ok)
+            case .reviewLoaded(let r):  applyReview(r)
             case .turnEnded:            endTurn()
             }
             if !running { break }
@@ -235,8 +242,15 @@ final class TUIApp {
 
     private func submit() {
         let text = input.trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty, !isBusy, let cont = channel else { return }
-        input = ""; cursor = 0; scroll = 0
+        guard !text.isEmpty else { return }
+        input = ""; cursor = 0
+        startTurn(text)
+    }
+
+    /// Run one build turn for `text` (used by submit + the reviewer's /fix).
+    private func startTurn(_ text: String) {
+        guard !isBusy, let cont = channel else { return }
+        scroll = 0
         transcript.append(Line(role: .user, text: text))
         pendingUser = text
         liveFile = nil; liveBuffer = ""
@@ -271,12 +285,66 @@ final class TUIApp {
             sessionTurns.append(SessionFile.Turn(role: "assistant", content: a, checkpointSHA: nil))
             saveSession()
         }
+        let req = pendingUser
         pendingUser = nil; currentAssistant = nil; assistantLineIndex = nil
         isBusy = false
-        if status.hasPrefix("Tænker") || status.hasPrefix("…") { status = "Klar." }
         if sidePane == .live { sidePane = .context }     // back to context after the build
         turnTask = nil
+        // Reviewer pass (advisory, non-blocking) on a successful build with a snapshot.
+        if autoReview, let req, let sha = lastSHA, !status.hasPrefix("✗") {
+            lastRequest = req; reviewing = true; status = "Gennemgår…"
+            runReview(request: req, sha: sha)
+        } else if status.hasPrefix("Tænker") || status.hasPrefix("…") {
+            status = "Klar."
+        }
         needsRender = true
+    }
+
+    private func runReview(request: String, sha: String) {
+        guard let cont = channel else { return }
+        let engine = self.engine
+        Task {
+            let diff = await engine.checkpoints.diff(from: sha)
+            let report = await ReviewAgent().review(
+                request: request, diff: diff,
+                provider: ModelRouter.provider(for: engine.config),
+                options: ModelRouter.options(for: engine.config))
+            cont.yield(.reviewLoaded(report))
+        }
+    }
+
+    private func applyReview(_ r: ReviewReport) {
+        reviewing = false
+        lastReview = r
+        if r.findings.isEmpty {
+            transcript.append(Line(role: .system, text: "✓ Review: \(r.summary.isEmpty ? "ser godt ud" : r.summary)"))
+        } else {
+            let head = r.summary.isEmpty ? "\(r.actionable.count) fund" : r.summary
+            transcript.append(Line(role: .system, text: "Review — \(head)\(r.actionable.isEmpty ? "" : "  (/fix retter dem)")"))
+            for f in r.findings {
+                let role: Line.Role = f.severity == .critical ? .error : (f.severity == .warn ? .warn : .system)
+                let icon = f.severity == .critical ? "✗" : (f.severity == .warn ? "⚠" : "·")
+                transcript.append(Line(role: role, text: "  \(icon) [\(f.category)] \(f.file.map { $0 + ": " } ?? "")\(f.message)"))
+            }
+        }
+        if status.hasPrefix("Gennemgår") { status = "Klar." }
+        scroll = 0; needsRender = true
+    }
+
+    private func reviewNow() {
+        guard let req = lastRequest, let sha = lastSHA else {
+            transcript.append(Line(role: .system, text: "intet build at gennemgå endnu")); needsRender = true; return
+        }
+        reviewing = true; status = "Gennemgår…"; needsRender = true
+        runReview(request: req, sha: sha)
+    }
+
+    private func applyFix() {
+        guard let r = lastReview, !r.actionable.isEmpty else {
+            transcript.append(Line(role: .system, text: "ingen review-fund at rette")); needsRender = true; return
+        }
+        guard !isBusy else { return }
+        startTurn(ReviewAgent.fixPrompt(for: r))
     }
 
     /// Persist the session (no apiKey) beside the checkpoints.
@@ -422,8 +490,8 @@ final class TUIApp {
 
     private func drawStatusBar(_ buf: ScreenBuffer, _ r: Rect) {
         buf.fill(r, " ", base)
-        let spin = isBusy ? Self.spinner[spinnerFrame % Self.spinner.count] + " " : "▍ "
-        let st: Style = status.hasPrefix("✗") ? errStyle : (status.hasPrefix("✓") ? okStyle : (isBusy ? theme.accentStyle : theme.dimStyle))
+        let spin = (isBusy || reviewing) ? Self.spinner[spinnerFrame % Self.spinner.count] + " " : "▍ "
+        let st: Style = status.hasPrefix("✗") ? errStyle : (status.hasPrefix("✓") ? okStyle : ((isBusy || reviewing) ? theme.accentStyle : theme.dimStyle))
         buf.text(spin + status, x: r.x + 1, y: r.y, st, clip: r)
         let hint = "/ kommandoer   ⇥ panel   ^C \(isBusy ? "afbryd" : "afslut")"
         buf.text(hint, x: max(r.x + 1, r.maxX - TextWidth.width(hint) - 1), y: r.y, theme.dimStyle, clip: r)
@@ -596,6 +664,14 @@ final class TUIApp {
         }
         gap()
 
+        head("REVIEW")
+        if reviewing { line("gennemgår…", theme.accentStyle) }
+        else if let r = lastReview {
+            if r.isClean { line("✓ " + (r.summary.isEmpty ? "ser godt ud" : r.summary), theme.on(theme.ok)) }
+            else { line("\(r.actionable.count) ting · /fix", theme.on(theme.warn)) }
+        } else { line(autoReview ? "kører efter build" : "fra · /review", dimStyle) }
+        gap()
+
         head("SKILLS (\(skills.count))")
         line(skills.isEmpty ? "ingen" : skills.prefix(5).map { $0.id }.joined(separator: " · "), dimStyle)
         gap()
@@ -639,6 +715,8 @@ final class TUIApp {
         case "undo":       restoreToTurn("")
         case "restore":    restoreToTurn(arg)
         case "checkpoints", "cp": listCheckpoints()
+        case "review":     reviewNow()
+        case "fix":        applyFix()
         case "theme":      switchTheme(arg)
         case "init":       writeAgentsFile()
         case "quit", "q":  running = false
@@ -758,6 +836,8 @@ final class TUIApp {
         ("/undo", "fortryd sidste tur"),
         ("/restore", "gendan til tur n"),
         ("/checkpoints", "liste over ture"),
+        ("/review", "gennemgå sidste build"),
+        ("/fix", "ret reviewer-fund"),
         ("/theme", "skift farvetema"),
         ("/init", "skriv AGENTS.md"),
         ("/help", "vis kommandoer"),
@@ -824,7 +904,8 @@ final class TUIApp {
                 for w in TextWidth.wrap(line.text, width: bodyWidth) { out.append(("  " + w, dimStyle)) }
             case .error:
                 for w in TextWidth.wrap(line.text, width: bodyWidth) { out.append(("  " + w, errStyle)) }
-                out.append(("", base))
+            case .warn:
+                for w in TextWidth.wrap(line.text, width: bodyWidth) { out.append(("  " + w, warnStyle)) }
             }
         }
         return out
