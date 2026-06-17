@@ -83,6 +83,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `9d9bc7c` 2026-06-17 — TUI P3 (opencode/nanocoder): layout solver + Forge screen skeleton
 - `64f4be1` 2026-06-17 — TUI P2 (opencode/nanocoder): pure render core in ForgeKit
 - `491153e` 2026-06-17 — TUI P1 (opencode/nanocoder): terminal lifecycle + guaranteed teardown
 - `6c4a8dd` 2026-06-17 — docs(handoff): opdater commit-log
@@ -102,5 +103,4 @@ ollama list | grep qwen2.5-coder
 - `7f822f5` 2026-06-17 — feat(metrics): verbose mode — tokens, TTFT, tok/s pr. kald/besked/session
 - `72185c0` 2026-06-16 — docs(handoff): opdater commit-log
 - `ca52861` 2026-06-16 — feat(model): tilføj OpenRouter som udbyder
-- `8f56ddb` 2026-06-16 — docs(handoff): opdater commit-log
 <!-- COMMITLOG:END -->
