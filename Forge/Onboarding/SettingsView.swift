@@ -161,6 +161,9 @@ struct SettingsView: View {
                 Toggle("Spørg før eksterne værktøjer (MCP)", isOn: $model.preferences.askBeforeMCP)
                 Text("Forge beder om lov før den kører disse handlinger under et build. Fil-ændringer spørges der aldrig om — de kan altid fortrydes via checkpoints.")
                     .font(.system(size: 11)).foregroundStyle(.secondary)
+                Toggle("Formatér med prettier ved Gem", isOn: $model.preferences.formatOnSave)
+                Text("Kører projektets egen prettier på filen når du gemmer (⌘S). Ingen effekt hvis projektet ikke har prettier installeret.")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
             }
 
             Section {

@@ -1301,6 +1301,7 @@ final class AppModel: PermissionGate {
         autosaveTask?.cancel()
         guard let path = selectedFile else { return }
         try? await workspace.writeFile(path, contents: editorText)
+        if preferences.formatOnSave { await formatSelectedFile(path) }   // Fase 4b
         lastLoadedText = editorText
         editorDirty = false
         // B17: Vite only reads .env files at startup, so applying a change means
@@ -1314,6 +1315,17 @@ final class AppModel: PermissionGate {
     }
 
     static func isEnvFile(_ path: String) -> Bool { path == ".env" || path == ".env.local" }
+
+    /// Fase 4b: run the project's LOCAL prettier on `path` (silent no-op if the
+    /// project has no prettier installed), then reload the formatted result.
+    private func formatSelectedFile(_ path: String) async {
+        let prettier = ProjectStore.dir(for: currentProject).appendingPathComponent("node_modules/.bin/prettier")
+        guard FileManager.default.isExecutableFile(atPath: prettier.path) else { return }
+        _ = try? await devServer.runShellCommand("node_modules/.bin/prettier --write \(Self.shellQuote(path)) 2>&1")
+        if let formatted = try? await workspace.readFile(path), formatted != editorText {
+            editorText = formatted
+        }
+    }
 
     /// B19: toggle the host status server the iOS companion polls (LAN/Tailscale).
     func toggleRemoteSharing() {

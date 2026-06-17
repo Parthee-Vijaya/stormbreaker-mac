@@ -65,6 +65,10 @@ struct Preferences: Codable, Equatable {
     var askBeforeDependencies = false
     var askBeforeMCP = true
 
+    /// Run the project's local prettier on a file when you save it in the editor
+    /// (no-op if the project has no prettier installed). Off by default.
+    var formatOnSave = false
+
     static let defaultRules = """
     # Project rules
 
@@ -92,7 +96,7 @@ extension Preferences {
         case learningMode, learnedLessons
         case preferredName, askedPreferredName
         case appearance, deployTarget, verboseMetrics
-        case askBeforeShell, askBeforeDependencies, askBeforeMCP
+        case askBeforeShell, askBeforeDependencies, askBeforeMCP, formatOnSave
     }
 
     init(from decoder: Decoder) throws {
@@ -124,5 +128,6 @@ extension Preferences {
         askBeforeShell = (try? c.decode(Bool.self, forKey: .askBeforeShell)) ?? askBeforeShell
         askBeforeDependencies = (try? c.decode(Bool.self, forKey: .askBeforeDependencies)) ?? askBeforeDependencies
         askBeforeMCP = (try? c.decode(Bool.self, forKey: .askBeforeMCP)) ?? askBeforeMCP
+        formatOnSave = (try? c.decode(Bool.self, forKey: .formatOnSave)) ?? formatOnSave
     }
 }
