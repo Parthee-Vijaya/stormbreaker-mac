@@ -113,11 +113,11 @@ func makeModelConfig(_ args: Args, _ cfg: ForgeConfig) -> ModelConfig {
 // MARK: - Engine wiring (mirrors tools/dogfood)
 
 /// One project's live engine context, reused across REPL turns.
-struct Engine {
+struct Engine: Sendable {
     let workspace: ProjectWorkspace
     let devServer: DevServerManager
     let collector: ErrorCollector
-    let config: ModelConfig
+    var config: ModelConfig            // var: mid-session model switch (P10) reassigns this
     let mcp: MCPManager
 }
 
@@ -418,9 +418,21 @@ func cmdChat(_ args: Args, _ cfg: ForgeConfig) async {
     do { engine = try await prepareEngine(dir: dir, framework: framework, config: config) }
     catch { fail("\(error)") }
 
+    let verbose = args.flag("verbose") || cfg.verbose == true
+
+    // Full-screen TUI — opt-in via --tui for now; phase 12 makes it the TTY default.
+    if args.flag("tui"), !plain, isTTY {
+        let term = Terminal()
+        do { try term.enter() } catch { fail("\(error)") }
+        await TUIApp(size: Size(cols: term.cols, rows: term.rows),
+                     engine: engine, modelName: config.displayName, verbose: verbose).run()
+        term.restore()
+        await engine.devServer.shutdown()
+        return
+    }
+
     say(dim("Skriv hvad du vil bygge. ':plan <prompt>' for kun at planlægge · ':quit' for at stoppe."))
     let session = MetricsAccumulator()
-    let verbose = args.flag("verbose") || cfg.verbose == true
     let gate: (any PermissionGate)? = (!plain && !args.flag("yes")) ? StdinPermissionGate() : nil
     var history: [ChatMessage] = []
     while true {
@@ -515,15 +527,6 @@ func cmdTUICheck() {
     }
 }
 
-/// `forge __tuidemo` — phase-5 event-loop probe: the full-screen App shell with an
-/// echo "turn" (no engine yet). Used by the pty harness.
-func cmdTUIDemo() async {
-    let term = Terminal()
-    do { try term.enter() } catch { fail("\(error)") }
-    defer { term.restore() }
-    await TUIApp(size: Size(cols: term.cols, rows: term.rows), subtitle: "echo-demo").run()
-}
-
 // MARK: - Dispatch
 
 let argv = Array(CommandLine.arguments.dropFirst())
@@ -543,7 +546,6 @@ case "chat":   await cmdChat(rest, cfg)
 case "skills": cmdSkills(rest, cfg)
 case "mcp":    await cmdMCP(rest, cfg)
 case "__tuicheck": cmdTUICheck()
-case "__tuidemo": await cmdTUIDemo()
 default:
     // `forge "<prompt>"` is shorthand for `forge build "<prompt>"`.
     if command.hasPrefix("--") { fail("ukendt kommando. Prøv: forge --help") }
