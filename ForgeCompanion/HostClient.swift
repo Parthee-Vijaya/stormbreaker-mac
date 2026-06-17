@@ -29,7 +29,9 @@ final class HostClient {
 
     var host: String = UserDefaults.standard.string(forKey: "forge-host") ?? ""
     var connection: Connection = .idle
+    var token: String = UserDefaults.standard.string(forKey: "forge-token") ?? ""   // Fase 4c: steer token
     var status = HostStatus()
+    var lastAction: String?                 // feedback after a steer POST
     private var task: Task<Void, Never>?
 
     /// The Mac serves the dev server on its own 127.0.0.1, so the phone must hit the
@@ -93,4 +95,29 @@ final class HostClient {
             return (error as NSError).localizedDescription
         }
     }
+
+    // MARK: - Steer (Fase 4c)
+
+    /// POST a steer command to the Mac (requires the shared token from the Mac's
+    /// "Del til iPhone" toast). build/stop/restore map to RemoteServer's endpoints.
+    func steer(_ path: String, body: [String: Any] = [:]) {
+        UserDefaults.standard.set(token, forKey: "forge-token")
+        guard !hostOnly.isEmpty, let url = URL(string: "http://\(hostOnly):7842/\(path)") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 6
+        req.setValue(token, forHTTPHeaderField: "X-Forge-Token")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        Task {
+            do {
+                let (_, resp) = try await URLSession.shared.data(for: req)
+                let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+                lastAction = code == 200 ? "Sendt ✓" : (code == 401 ? "Forkert token" : "Fejl (\(code))")
+            } catch { lastAction = "Kunne ikke sende" }
+        }
+    }
+    func build(_ prompt: String) { steer("build", body: ["prompt": prompt]) }
+    func stopBuild() { steer("stop") }
+    func restore() { steer("restore") }
 }

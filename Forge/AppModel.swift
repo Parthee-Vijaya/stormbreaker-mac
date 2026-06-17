@@ -131,6 +131,7 @@ final class AppModel: PermissionGate {
     var isDictating = false                 // B15: live voice dictation into the composer
     @ObservationIgnored private let dictation = Dictation()
     var remoteSharing = false               // B19: serve project status to the iOS companion
+    var remoteToken = ""                    // Fase 4c: shared token required to STEER over HTTP
     @ObservationIgnored private let remoteServer = RemoteServer()
 
     // Layout: the preview pane only appears once the first build has started.
@@ -1331,12 +1332,34 @@ final class AppModel: PermissionGate {
     func toggleRemoteSharing() {
         remoteSharing.toggle()
         if remoteSharing {
+            remoteToken = String(UUID().uuidString.prefix(8))   // Fase 4c: steer token
+            remoteServer.setAuthToken(remoteToken)
+            remoteServer.onCommand = { [weak self] command in
+                Task { @MainActor in self?.handleRemoteCommand(command) }
+            }
             remoteServer.start()
             updateRemoteStatus()
-            showToast("Deler til iPhone på port 7842", icon: "iphone")
+            showToast("Deler til iPhone · token \(remoteToken)", icon: "iphone")
         } else {
+            remoteServer.setAuthToken(nil)
             remoteServer.stop()
+            remoteToken = ""
             showToast("Stoppede iPhone-deling", icon: "iphone.slash")
+        }
+    }
+
+    /// Fase 4c: a steer command from the companion/curl (build/stop/restore). Runs on
+    /// the main actor; only reachable when sharing is on + the token matches.
+    func handleRemoteCommand(_ command: RemoteCommand) {
+        switch command {
+        case .build(let prompt):
+            guard !isBusy else { return }
+            draft = prompt
+            submit()
+        case .stop:
+            cancelGeneration()
+        case .restore:
+            if let message = messages.last(where: { $0.checkpoint != nil }) { restoreCheckpoint(message) }
         }
     }
 

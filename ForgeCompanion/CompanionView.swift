@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CompanionView: View {
     @State private var client = HostClient()
+    @State private var prompt = ""   // Fase 4c: steer prompt
 
     var body: some View {
         NavigationStack {
@@ -42,6 +43,10 @@ struct CompanionView: View {
                 .keyboardType(.URL)
                 .submitLabel(.go)
                 .onSubmit(client.connect)
+            TextField("Token (valgfri — kun for at styre Mac'en)", text: $client.token)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
             Button(action: client.connect) {
                 Text(client.connection == .connecting ? "Forbinder…" : "Forbind")
                     .frame(maxWidth: .infinity)
@@ -81,5 +86,34 @@ struct CompanionView: View {
                 )
             }
         }
+        .safeAreaInset(edge: .bottom) { steerBar }
+    }
+
+    /// Fase 4c: drive the Mac from the phone — send a prompt or stop the build.
+    /// Needs the token entered on the connect screen (else the Mac returns 401).
+    private var steerBar: some View {
+        @Bindable var client = client
+        return VStack(spacing: 5) {
+            if let action = client.lastAction {
+                Text(action).font(.caption2).foregroundStyle(.secondary)
+            }
+            HStack(spacing: 8) {
+                TextField("Beskriv en ændring…", text: $prompt)
+                    .textFieldStyle(.roundedBorder).submitLabel(.send).onSubmit(send)
+                Button(action: send) { Image(systemName: "arrow.up.circle.fill").font(.title2) }
+                    .disabled(prompt.trimmingCharacters(in: .whitespaces).isEmpty || client.token.isEmpty)
+                Button { client.stopBuild() } label: { Image(systemName: "stop.circle").font(.title2) }
+                    .tint(.red).disabled(client.token.isEmpty)
+            }
+        }
+        .padding(10)
+        .background(.bar)
+    }
+
+    private func send() {
+        let p = prompt.trimmingCharacters(in: .whitespaces)
+        guard !p.isEmpty else { return }
+        client.build(p)
+        prompt = ""
     }
 }

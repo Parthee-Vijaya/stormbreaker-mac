@@ -83,6 +83,7 @@ ollama list | grep qwen2.5-coder
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `43801d7` 2026-06-17 — Fase 4b (opencode): prettier-ved-gem (opt-in)
 - `982cbc1` 2026-06-17 — Fase 4a (opencode): markdown chat-eksport
 - `8702e9a` 2026-06-17 — Fase 3 (opencode): AGENTS.md-interop + @file-mentions
 - `b6e3ea2` 2026-06-17 — Fase 2a (opencode): editor-diagnostics (tsc squiggles)
@@ -102,5 +103,4 @@ ollama list | grep qwen2.5-coder
 - `ec08a4c` 2026-06-16 — C4 + B9: hurtig-redigerings-toolbar + npm-pakke-søgning
 - `e23070c` 2026-06-16 — C13 + C6: venlig fejl-kort i preview + device-bezels
 - `bcdb581` 2026-06-16 — C7 + C8 + C5: rigere chat-beskeder, status-tidslinje, entré-animation
-- `8d8aedb` 2026-06-16 — A11 + A13 + A6: motor-hærdning (self-correction, node-cache, fuzz)
 <!-- COMMITLOG:END -->
