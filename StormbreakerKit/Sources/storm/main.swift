@@ -448,7 +448,11 @@ func cmdChat(_ args: Args, _ cfg: StormbreakerConfig) async {
             engine.config = resume.resolvedConfig(fallback: config)
         }
         let theme = ANSITheme.named(cfg.theme ?? "") ?? .midnight
-        let firstRun = cfg.onboarded != true && resume == nil
+        // Show the onboarding model-picker on a true first run AND whenever no model
+        // is configured (e.g. onboarding was skipped) — so we never silently fall back
+        // to a hardcoded model that may not exist on this machine.
+        let needModel = args.option("model") == nil && (cfg.model ?? "").isEmpty
+        let firstRun = (cfg.onboarded != true || needModel) && resume == nil
         // On first run, detect local models (Ollama + LM Studio) up front so the
         // onboarding model-picker can show them. Done before raw mode is entered.
         let discovered = firstRun ? await ModelDiscovery.discoverLocal() : []

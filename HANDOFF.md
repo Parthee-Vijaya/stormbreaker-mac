@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `e254b02` 2026-06-18 — Multi-agent review panel: /review spins up 4 parallel agents
 - `1bdd3ae` 2026-06-18 — Surface real install/build errors + slow the status quotes down
 - `a30859b` 2026-06-18 — TUI polish: fun status quotes, "lokal" cost, git nested-repo fix, /copy
 - `7ce7daa` 2026-06-18 — CLI onboarding: pick a model (local + cloud) on first run + friendlier errors
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `1d5837b` 2026-06-17 — TUI: persistent Kontekst sidebar (opencode-style)
 - `1259a7a` 2026-06-17 — TUI: clearer FORGE wordmark logo (half-block font)
 - `fe54620` 2026-06-17 — TUI: opencode-style redesign + first-run onboarding
-- `6749c15` 2026-06-17 — forge CLI: one-command install script (build release + symlink onto PATH)
 <!-- COMMITLOG:END -->

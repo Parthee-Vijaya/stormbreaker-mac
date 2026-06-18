@@ -1104,6 +1104,18 @@ final class TUIApp {
         }
     }
 
+    /// Persist a /model switch so it survives the next launch. Only local models —
+    /// /model lists discovered local models + the current one, so it never introduces
+    /// a new cloud provider; a configured cloud stays as set in onboarding.
+    private func persistModel(_ m: ModelConfig) {
+        guard m.source != .cloud else { return }
+        var c = StormbreakerConfig.load()
+        c.provider = m.source.rawValue        // "ollama" | "lmStudio"
+        c.model = m.modelID
+        c.baseURL = m.baseURL.absoluteString
+        c.save()
+    }
+
     private func handleModelKey(_ key: Key) {
         guard let choices = modelChoices else { return }
         switch key {
@@ -1114,6 +1126,7 @@ final class TUIApp {
             if n >= 0, n < choices.count {
                 engine.config = choices[n]                  // next turn's makeDeps reads the new model
                 modelName = choices[n].displayName
+                persistModel(choices[n])                    // remember the switch across launches
                 modelChoices = nil
                 status = "Model: \(modelName)"
                 needsRender = true
