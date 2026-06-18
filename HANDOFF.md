@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Forge til et lille team, ikke kun �
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `5536484` 2026-06-18 — AgentLoop: keep token accounting when a build fails at artifact-close
 - `41384d3` 2026-06-18 — TUI: token-forbrug altid ved siden af modelnavnet i headeren
 - `36b34f0` 2026-06-18 — docs(handoff): document the agentic-SDLC køreplan (reviewer · GitHub · swarm)
 - `1dc4b23` 2026-06-18 — Swarm/kø S1+S2 (agentic-SDLC borrow): task queue runner + KØ sidebar
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Forge til et lille team, ikke kun �
 - `d8ab049` 2026-06-17 — TUI P8 (opencode/nanocoder): live file-streaming + syntax highlight
 - `f44a92a` 2026-06-17 — TUI P7 (opencode/nanocoder): ANSITheme + CheckpointManager in the CLI engine
 - `79e843c` 2026-06-17 — TUI P6 (opencode/nanocoder): wire the real AgentLoop + permission modal
-- `4ef787e` 2026-06-17 — TUI P5 (opencode/nanocoder): full-screen event loop
 <!-- COMMITLOG:END -->

@@ -51,8 +51,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: pavi.Forge
         PRODUCT_NAME: Forge
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: "0.2.1"
-        CURRENT_PROJECT_VERSION: "3"
+        MARKETING_VERSION: "0.3.0"
+        CURRENT_PROJECT_VERSION: "4"
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Forge/Info.plist
         CODE_SIGN_ENTITLEMENTS: Forge/Forge.entitlements
