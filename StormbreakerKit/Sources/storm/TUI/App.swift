@@ -314,17 +314,18 @@ final class TUIApp {
         liveFile = nil; liveBuffer = ""; todos = []; sawExplicitTodos = false   // fresh checklist per turn
         isBusy = true; status = StormQuotes.working.randomElement() ?? "Tænker…"; statusIsQuote = true; spinnerFrame = 0
         let engine = self.engine
-        let prior = history
         turnTask = Task {
             // Snapshot the pre-turn state first, so /diff + /undo (P9/P11) can compare.
             if let sha = await engine.checkpoints.snapshot(label: text) { cont.yield(.turnSnapshot(sha)) }
+            // Auto-compact a long history so a small local context window doesn't overflow.
+            await self.compactHistoryIfNeeded()
             // Fetch any URLs in the prompt so the model reads REAL content instead of
             // guessing from the URL's words. The model sees the augmented prompt; the
             // transcript keeps showing the user's original line.
             let prompt = await self.augmentWithURLs(text)
             let gate = TUIPermissionGate(channel: cont)
             let loop = AgentLoop(makeDeps(engine, mode: .build, gate: gate))
-            for await ev in loop.run(userPrompt: prompt, history: prior, mode: .build) { cont.yield(.agent(ev)) }
+            for await ev in loop.run(userPrompt: prompt, history: self.history, mode: .build) { cont.yield(.agent(ev)) }
             cont.yield(.turnEnded)
         }
         needsRender = true
@@ -356,6 +357,71 @@ final class TUIApp {
             prompt += "\n\n(Kunne IKKE hente: \(failed.joined(separator: ", ")). Sig ærligt at du ikke kunne læse dem — gæt ikke indholdet.)"
         }
         return prompt
+    }
+
+    /// Auto-compaction: if the chat history has grown past the budget, summarize the
+    /// older turns so a small local context window doesn't overflow. Runs inside the
+    /// turn task, before the model call.
+    private func compactHistoryIfNeeded() async {
+        let compactor = ConversationCompactor()
+        guard compactor.needsCompaction(history) else { return }
+        await runCompaction(compactor)
+    }
+
+    /// `/compact`: summarize the conversation now, on demand.
+    private func compactNow() {
+        guard !isBusy else {
+            transcript.append(Line(role: .system, text: "vent til build er færdigt")); needsRender = true; return
+        }
+        guard history.count > 2 else {
+            transcript.append(Line(role: .system, text: "ingen historik at komprimere endnu")); needsRender = true; return
+        }
+        isBusy = true; status = "Komprimerer…"; statusIsQuote = false; spinnerFrame = 0; needsRender = true
+        turnTask = Task {
+            await runCompaction(ConversationCompactor(maxTokens: 0))   // force, even if under the auto threshold
+            isBusy = false; status = "✓ Klar."
+            needsRender = true
+        }
+    }
+
+    /// Shared compaction body: shows progress, summarizes the old turns via the model,
+    /// and swaps in the compacted history.
+    private func runCompaction(_ compactor: ConversationCompactor) async {
+        let before = history.count
+        transcript.append(Line(role: .system, text: "🗜 komprimerer samtalehistorik…")); needsRender = true
+        let engine = self.engine
+        let compacted = await compactor.compact(history) { convo in
+            await Self.summarizeConversation(convo, engine: engine)
+        }
+        if compacted.count < before {
+            history = compacted
+            transcript.append(Line(role: .system, text: "✓ historik komprimeret (\(before) → \(compacted.count) beskeder)"))
+        } else {
+            transcript.append(Line(role: .system, text: "  (intet at komprimere)"))
+        }
+        needsRender = true
+    }
+
+    /// One-shot model call that summarizes a conversation transcript (reasoning stripped).
+    /// nonisolated so it runs off the main actor — keeps the UI responsive during the call.
+    nonisolated private static func summarizeConversation(_ convo: String, engine: Engine) async -> String? {
+        let provider = ModelRouter.provider(for: engine.config)
+        let messages = [
+            ChatMessage(role: .system, content: SystemPrompt.compactSummary),
+            ChatMessage(role: .user, content: convo),
+        ]
+        let splitter = ReasoningSplitter()
+        var out = ""
+        do {
+            for try await ev in provider.stream(messages: messages, options: ModelRouter.options(for: engine.config)) {
+                if case .token(let t) = ev {
+                    for piece in splitter.consume(t) { if case .text(let x) = piece { out += x } }
+                }
+            }
+        } catch { return nil }
+        for piece in splitter.finish() { if case .text(let x) = piece { out += x } }
+        let trimmed = out.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private func cancelTurn() {
@@ -1155,6 +1221,7 @@ final class TUIApp {
         case "pr":         gitPR(arg)
         case "git":        refreshGit(manual: true)
         case "kø", "ko", "queue", "swarm": queueCommand(arg)
+        case "compact", "komprimer", "komprimér": compactNow()
         case "copy", "kopier", "yank": copyLast()
         case "quit", "q":  running = false
         case "help":       transcript.append(Line(role: .system, text: Self.slashCommands.map { "\($0.0) — \($0.1)" }.joined(separator: "\n")))
@@ -1296,6 +1363,7 @@ final class TUIApp {
         ("/pull", "hent ændringer fra GitHub"),
         ("/pr", "opret et pull request"),
         ("/kø", "stil byggeopgaver i kø (kører én ad gangen)"),
+        ("/compact", "komprimér samtalehistorik (spar kontekst)"),
         ("/copy", "kopiér sidste svar til udklipsholderen"),
         ("/help", "vis kommandoer"),
         ("/quit", "afslut"),

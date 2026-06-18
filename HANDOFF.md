@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `6d1d357` 2026-06-18 — Live plan checklist (todowrite): show the agent's plan as a checklist during a build
 - `91a3ff9` 2026-06-18 — Web as an agent tool: the model can search the web + fetch URLs mid-build
 - `bbcca2e` 2026-06-18 — Per-command shell permissions: allow safe dev tooling, refuse catastrophic, ask the rest
 - `278b99c` 2026-06-18 — Read URLs the user pastes (GitHub repos / pages) instead of hallucinating
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `799678c` 2026-06-18 — GitHub G2 (agentic-SDLC borrow): GIT sidebar section + slash commands
 - `2e12ddf` 2026-06-18 — GitHub G1 (agentic-SDLC borrow): GitService + GitStatus in ForgeKit
 - `4ef6e5f` 2026-06-18 — Reviewer RA3 (agentic-SDLC borrow): reviewer in the Mac app
-- `c3f12fb` 2026-06-18 — Reviewer RA2 (agentic-SDLC borrow): reviewer in the CLI/TUI
 <!-- COMMITLOG:END -->

@@ -232,6 +232,21 @@ public enum SystemPrompt {
         return storm + "\n\n" + wholeFileExample
     }
 
+    /// Compaction prompt (opencode `/compact`): squeeze the older part of a coding
+    /// conversation into a concise summary so the assistant can continue without the
+    /// full history (essential for small local context windows).
+    public static let compactSummary = """
+    You compress the older part of a coding conversation into a concise summary so the assistant \
+    can keep going without the full transcript. PRESERVE, in short bullet points:
+    - what the user is building (app type, framework, key features);
+    - decisions made (libraries, data shape, layout/styling choices);
+    - files and components created or edited so far (by name);
+    - the current working state;
+    - any unfinished requests, constraints, or preferences the user stated.
+    Be faithful and specific — do NOT invent anything. No code blocks, no preamble. Reply in the \
+    user's language. Output ONLY the summary.
+    """
+
     /// Plan-mode prompt: think and propose, do NOT build. The user reviews the
     /// plan (and answers any questions) before approving the build.
     public static let plan = """
