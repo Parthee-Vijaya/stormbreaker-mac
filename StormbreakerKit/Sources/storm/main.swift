@@ -163,6 +163,10 @@ func makeDeps(_ engine: Engine, mode: AgentLoop.Mode, gate: (any PermissionGate)
     if let rules = RulesLoader.read(projectRoot: engine.workspace.root) {   // AGENTS.md + AI_RULES.md
         systemPrompt += "\n\n" + rules
     }
+    // Cross-session memory: what Stormbreaker has learned about the user + this project.
+    let memory = StormMemory(globalURL: configDir().appendingPathComponent("memory.json"),
+                             projectURL: engine.workspace.root.appendingPathComponent(".forge/memory.json"))
+    if let block = memory.promptBlock() { systemPrompt += "\n\n" + block }
     return AgentLoop.Dependencies(
         provider: ModelRouter.provider(for: engine.config),
         options: ModelRouter.options(for: engine.config),

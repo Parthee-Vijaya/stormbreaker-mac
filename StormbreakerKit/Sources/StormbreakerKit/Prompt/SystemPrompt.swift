@@ -247,6 +247,25 @@ public enum SystemPrompt {
     user's language. Output ONLY the summary.
     """
 
+    /// Memory-extraction prompt (Phase 2): pull DURABLE, cross-session facts out of a
+    /// conversation so Stormbreaker remembers the user + project next time.
+    public static let memoryExtract = """
+    You extract DURABLE facts worth remembering across FUTURE sessions from a coding conversation. \
+    Capture only lasting things: user preferences (tools, style, language), project decisions and \
+    conventions, and corrections the user made. IGNORE transient build details, one-off bugs, and \
+    anything already obvious from the code.
+
+    Output ONLY a JSON array — no prose, no markdown fence. Each item:
+    {"scope":"global"|"project","kind":"preference"|"decision"|"convention"|"fact"|"correction","text":"...","supersedes":"..."}
+    - scope "global" = about the USER (applies to every project); "project" = about THIS codebase.
+    - "text": the fact stated PLAINLY (e.g. "Projektet bruger pnpm") — NEVER a meta-description like \
+      "the old fact is superseded by…".
+    - "supersedes": OPTIONAL — when this fact corrects/replaces one in the provided existing memory, put \
+      the OLD fact's text (verbatim from the existing list) here, and the NEW fact in "text". Omit otherwise.
+    - Do NOT repeat facts already in the existing memory. Return [] if nothing durable. Max 6 items. \
+      Reply in the user's language.
+    """
+
     /// Plan-mode prompt: think and propose, do NOT build. The user reviews the
     /// plan (and answers any questions) before approving the build.
     public static let plan = """

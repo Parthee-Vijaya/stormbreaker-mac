@@ -424,6 +424,124 @@ final class TUIApp {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    // MARK: - Cross-session memory (/remember, /memory)
+
+    private func memoryStore() -> StormMemory {
+        StormMemory(globalURL: configDir().appendingPathComponent("memory.json"),
+                    projectURL: engine.workspace.root.appendingPathComponent(".forge/memory.json"))
+    }
+
+    /// `/remember <fact>` stores a project fact; `/remember` with no text learns from
+    /// the session (Phase 2 extraction).
+    private func rememberCommand(_ arg: String) {
+        let text = arg.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { extractMemoriesNow(); return }
+        var mem = memoryStore()
+        if mem.remember(text, kind: .note, scope: .project) {
+            transcript.append(Line(role: .system, text: "🧠 husket (projekt): \(text)"))
+        } else {
+            transcript.append(Line(role: .system, text: "  (det huskede jeg allerede)"))
+        }
+        needsRender = true
+    }
+
+    /// `/memory` lists; `/memory forget <n>` deletes; `/memory clear[-all]` wipes.
+    private func memoryCommand(_ arg: String) {
+        let parts = arg.split(separator: " ", maxSplits: 1).map(String.init)
+        let sub = (parts.first ?? "").lowercased()
+        var mem = memoryStore()
+        switch sub {
+        case "forget", "glem":
+            if let n = Int(parts.count > 1 ? parts[1] : ""), let e = mem.forget(n - 1) {
+                transcript.append(Line(role: .system, text: "🗑 glemt: \(e.text)"))
+            } else {
+                transcript.append(Line(role: .system, text: "ugyldigt nummer — se /memory"))
+            }
+        case "clear", "ryd":
+            StormMemory.write([], to: mem.projectURL)   // global (about you) is kept
+            transcript.append(Line(role: .system, text: "ryddede projektets hukommelse (global beholdt — /memory clear-all for begge)"))
+        case "clear-all":
+            StormMemory.write([], to: mem.projectURL); StormMemory.write([], to: mem.globalURL)
+            transcript.append(Line(role: .system, text: "ryddede al hukommelse"))
+        default:
+            let act = mem.active
+            guard !act.isEmpty else {
+                transcript.append(Line(role: .system, text: "ingen hukommelse endnu — /remember <fakta>, eller /remember for at lære af sessionen"))
+                break
+            }
+            transcript.append(Line(role: .system, text: "hukommelse (\(act.count)):"))
+            for (i, item) in act.enumerated() {
+                transcript.append(Line(role: .system, text: "  \(i + 1)) (\(item.scope.rawValue)/\(item.entry.kind.rawValue)) \(item.entry.text)"))
+            }
+            transcript.append(Line(role: .system, text: "  /memory forget <n> · /memory clear"))
+        }
+        needsRender = true
+    }
+
+    /// `/remember` with no text: ask the model to extract durable facts from this
+    /// session, dedup + supersede against existing memory, and store them (Phase 2).
+    private func extractMemoriesNow() {
+        guard !isBusy else {
+            transcript.append(Line(role: .system, text: "vent til build er færdigt")); needsRender = true; return
+        }
+        guard history.count >= 2 else {
+            transcript.append(Line(role: .system, text: "ingen samtale at lære fra endnu")); needsRender = true; return
+        }
+        isBusy = true; status = "Lærer fra sessionen…"; statusIsQuote = false; spinnerFrame = 0; needsRender = true
+        let engine = self.engine
+        let convo = history.suffix(40)
+            .map { "\($0.role == .user ? "Bruger" : "Assistent"): \($0.content)" }
+            .joined(separator: "\n\n")
+        let g = configDir().appendingPathComponent("memory.json")
+        let p = engine.workspace.root.appendingPathComponent(".forge/memory.json")
+        let existing = StormMemory(globalURL: g, projectURL: p).active.map { $0.entry.text }
+        transcript.append(Line(role: .system, text: "🧠 gennemgår sessionen for ting værd at huske…"))
+        turnTask = Task {
+            let facts = await Self.extractFacts(convo, existing: existing, engine: engine)
+            var mem = StormMemory(globalURL: g, projectURL: p)
+            let added = mem.ingest(facts)
+            isBusy = false; status = "✓ Klar."
+            transcript.append(Line(role: .system, text: added > 0
+                ? "🧠 lærte \(added) ny(e) ting — se /memory"
+                : "  (intet nyt værd at huske)"))
+            needsRender = true
+        }
+    }
+
+    /// One-shot model call that extracts durable facts as JSON. nonisolated → off-main.
+    nonisolated private static func extractFacts(_ convo: String, existing: [String], engine: Engine)
+        async -> [(scope: MemoryScope, kind: MemoryEntry.Kind, text: String, supersedes: String?)] {
+        let provider = ModelRouter.provider(for: engine.config)
+        let existingBlock = existing.isEmpty ? "(ingen)" : existing.map { "- \($0)" }.joined(separator: "\n")
+        let messages = [
+            ChatMessage(role: .system, content: SystemPrompt.memoryExtract),
+            ChatMessage(role: .user, content: "Eksisterende hukommelse:\n\(existingBlock)\n\n--- Samtale ---\n\(convo)"),
+        ]
+        let splitter = ReasoningSplitter()
+        var raw = ""
+        do {
+            for try await ev in provider.stream(messages: messages, options: ModelRouter.options(for: engine.config)) {
+                if case .token(let t) = ev {
+                    for piece in splitter.consume(t) { if case .text(let x) = piece { raw += x } }
+                }
+            }
+        } catch { return [] }
+        for piece in splitter.finish() { if case .text(let x) = piece { raw += x } }
+
+        // Pull out the JSON array (models sometimes wrap it in prose/fences).
+        guard let start = raw.firstIndex(of: "["), let end = raw.lastIndex(of: "]"), start < end,
+              let arr = (try? JSONSerialization.jsonObject(with: Data(raw[start...end].utf8))) as? [[String: Any]]
+        else { return [] }
+        return arr.compactMap { obj in
+            guard let text = (obj["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty
+            else { return nil }
+            let scope = MemoryScope(rawValue: (obj["scope"] as? String) ?? "project") ?? .project
+            let kind = MemoryEntry.Kind(rawValue: (obj["kind"] as? String) ?? "note") ?? .note
+            let sup = (obj["supersedes"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (scope, kind, text, (sup?.isEmpty == false) ? sup : nil)
+        }
+    }
+
     private func cancelTurn() {
         turnTask?.cancel(); turnTask = nil
         if let (_, c) = pendingPermission { pendingPermission = nil; c.resume(returning: .deny) }
@@ -1222,6 +1340,8 @@ final class TUIApp {
         case "git":        refreshGit(manual: true)
         case "kø", "ko", "queue", "swarm": queueCommand(arg)
         case "compact", "komprimer", "komprimér": compactNow()
+        case "remember", "husk": rememberCommand(arg)
+        case "memory", "hukommelse": memoryCommand(arg)
         case "copy", "kopier", "yank": copyLast()
         case "quit", "q":  running = false
         case "help":       transcript.append(Line(role: .system, text: Self.slashCommands.map { "\($0.0) — \($0.1)" }.joined(separator: "\n")))
@@ -1364,6 +1484,8 @@ final class TUIApp {
         ("/pr", "opret et pull request"),
         ("/kø", "stil byggeopgaver i kø (kører én ad gangen)"),
         ("/compact", "komprimér samtalehistorik (spar kontekst)"),
+        ("/remember", "husk en fakta (eller lær af sessionen)"),
+        ("/memory", "vis/glem hvad jeg husker på tværs af sessioner"),
         ("/copy", "kopiér sidste svar til udklipsholderen"),
         ("/help", "vis kommandoer"),
         ("/quit", "afslut"),
