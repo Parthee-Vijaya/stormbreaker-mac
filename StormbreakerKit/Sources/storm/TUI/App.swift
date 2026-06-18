@@ -345,6 +345,7 @@ final class TUIApp {
             saveSession()
         }
         let req = pendingUser
+        if let req { lastRequest = req }                 // so /review works even with auto-review off
         pendingUser = nil; currentAssistant = nil; assistantLineIndex = nil
         isBusy = false
         if sidePane == .live { sidePane = .context }     // back to context after the build
@@ -388,6 +389,21 @@ final class TUIApp {
         }
     }
 
+    /// /review — spin up one specialised agent per lens IN PARALLEL (korrekthed,
+    /// sikkerhed, frontend, backend), then merge into one report.
+    private func runReviewPanel(request: String, sha: String) {
+        guard let cont = channel else { return }
+        let engine = self.engine
+        Task {
+            let diff = await engine.checkpoints.diff(from: sha)
+            let report = await ReviewAgent().reviewPanel(
+                request: request, diff: diff,
+                provider: ModelRouter.provider(for: engine.config),
+                options: ModelRouter.options(for: engine.config))
+            cont.yield(.reviewLoaded(report))
+        }
+    }
+
     private func applyReview(_ r: ReviewReport) {
         reviewing = false
         lastReview = r
@@ -412,8 +428,11 @@ final class TUIApp {
         guard let req = lastRequest, let sha = lastSHA else {
             transcript.append(Line(role: .system, text: "intet build at gennemgå endnu")); needsRender = true; return
         }
-        reviewing = true; status = "Gennemgår…"; needsRender = true
-        runReview(request: req, sha: sha)
+        let lenses = ReviewLens.allCases
+        transcript.append(Line(role: .system,
+            text: "Spinner \(lenses.count) review-agenter op: " + lenses.map { $0.label }.joined(separator: " · ")))
+        reviewing = true; status = "Gennemgår med \(lenses.count) agenter…"; needsRender = true
+        runReviewPanel(request: req, sha: sha)
     }
 
     private func applyFix() {
@@ -1183,7 +1202,7 @@ final class TUIApp {
         ("/undo", "fortryd sidste tur"),
         ("/restore", "gendan til tur n"),
         ("/checkpoints", "liste over ture"),
-        ("/review", "gennemgå sidste build"),
+        ("/review", "gennemgå med 4 parallelle agenter"),
         ("/fix", "ret reviewer-fund"),
         ("/theme", "skift farvetema"),
         ("/init", "skriv AGENTS.md"),

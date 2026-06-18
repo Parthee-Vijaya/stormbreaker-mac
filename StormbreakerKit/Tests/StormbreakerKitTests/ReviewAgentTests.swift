@@ -52,4 +52,32 @@ final class ReviewAgentTests: XCTestCase {
         XCTAssertTrue(p.contains("src/App.tsx"))
         XCTAssertFalse(p.contains("lille ting"))      // info isn't auto-fixed
     }
+
+    // MARK: - Multi-agent panel merge
+
+    func testMergeDedupesAcrossLensesAndSortsCriticalsFirst() {
+        let frontend = ReviewReport(findings: [
+            ReviewFinding(severity: .warn, category: "frontend", file: "src/App.tsx", message: "manglende alt"),
+            ReviewFinding(severity: .info, category: "frontend", file: "-", message: "lille ting"),
+        ])
+        let security = ReviewReport(findings: [
+            ReviewFinding(severity: .critical, category: "sikkerhed", file: "src/App.tsx", message: "XSS via dangerouslySetInnerHTML"),
+            ReviewFinding(severity: .warn, category: "korrekthed", file: "src/App.tsx", message: "MANGLENDE ALT"), // dup (case-insensitive)
+        ])
+        let merged = ReviewAgent.merge([frontend, security], lensCount: 4)
+        XCTAssertEqual(merged.findings.filter { $0.message.lowercased() == "manglende alt" }.count, 1, "duplicate finding deduped")
+        XCTAssertEqual(merged.findings.first?.severity, .critical, "criticals sort first")
+        XCTAssertTrue(merged.summary.contains("4 agenter"))
+        XCTAssertTrue(merged.summary.contains("2"), "2 actionable (1 critical + 1 warn)")
+    }
+
+    func testMergeCleanWhenNoFindings() {
+        let merged = ReviewAgent.merge([ReviewReport(), ReviewReport(), ReviewReport(), ReviewReport()], lensCount: 4)
+        XCTAssertTrue(merged.isClean)
+        XCTAssertTrue(merged.summary.contains("ser godt ud"))
+    }
+
+    func testLensLabelsAreDistinct() {
+        XCTAssertEqual(Set(ReviewLens.allCases.map(\.label)).count, ReviewLens.allCases.count)
+    }
 }
