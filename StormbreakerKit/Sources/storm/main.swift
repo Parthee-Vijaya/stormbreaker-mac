@@ -59,12 +59,15 @@ struct StormbreakerConfig: Codable {
         try? FileManager.default.createDirectory(at: configDir(), withIntermediateDirectories: true)
         let enc = JSONEncoder(); enc.outputFormatting = .prettyPrinted
         if let data = try? enc.encode(self) {
-            try? data.write(to: configDir().appendingPathComponent("config.json"), options: .atomic)
+            let path = configDir().appendingPathComponent("config.json")
+            try? data.write(to: path, options: .atomic)
+            // May contain a cloud API key — keep it owner-only.
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path.path)
         }
     }
 }
 
-/// XDG-ish config dir: $XDG_CONFIG_HOME/storm or ~/.config/forge.
+/// XDG-ish config dir: $XDG_CONFIG_HOME/storm or ~/.config/storm.
 func configDir() -> URL {
     let env = ProcessInfo.processInfo.environment
     let base = env["XDG_CONFIG_HOME"].map { URL(fileURLWithPath: $0) }
@@ -445,13 +448,18 @@ func cmdChat(_ args: Args, _ cfg: StormbreakerConfig) async {
             engine.config = resume.resolvedConfig(fallback: config)
         }
         let theme = ANSITheme.named(cfg.theme ?? "") ?? .midnight
+        let firstRun = cfg.onboarded != true && resume == nil
+        // On first run, detect local models (Ollama + LM Studio) up front so the
+        // onboarding model-picker can show them. Done before raw mode is entered.
+        let discovered = firstRun ? await ModelDiscovery.discoverLocal() : []
         let term = Terminal()
         do { try term.enter() } catch { fail("\(error)") }
         await TUIApp(size: Size(cols: term.cols, rows: term.rows),
                      engine: engine, modelName: engine.config.displayName, framework: framework.displayName,
                      verbose: verbose, theme: theme, resume: resume,
-                     firstRun: cfg.onboarded != true && resume == nil,
-                     autoReview: !args.flag("no-review")).run()
+                     firstRun: firstRun,
+                     autoReview: !args.flag("no-review"),
+                     discovered: discovered).run()
         term.restore()
         await engine.devServer.shutdown()
         return

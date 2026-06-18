@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `461a440` 2026-06-18 — Fix TUI crash on terminal resize (SIGWINCH handler isolation)
 - `f70aa56` 2026-06-18 — Rename Forge → Stormbreaker across the codebase (command: storm)
 - `d3dae9b` 2026-06-18 — docs: Avanceret CLI-side + curl-installer
 - `8057d5d` 2026-06-18 — v0.3.0: website — CLI/terminal section + new features, version bump
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `50f7c05` 2026-06-17 — TUI P12 (opencode/nanocoder): slash-menu + themes + /init + flip to default
 - `c444ef2` 2026-06-17 — TUI P11 (opencode/nanocoder): session resume + undo/restore
 - `9843f64` 2026-06-17 — TUI P10 (opencode/nanocoder): mid-session model switch (/model)
-- `d5d8160` 2026-06-17 — TUI P9 (opencode/nanocoder): colored diffs + /diff
 <!-- COMMITLOG:END -->

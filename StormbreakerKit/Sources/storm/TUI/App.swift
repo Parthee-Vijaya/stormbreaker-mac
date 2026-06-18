@@ -107,8 +107,27 @@ final class TUIApp {
     private var lastSHA: String?               // most recent pre-turn snapshot (for /diff)
     private var sessionTurns: [SessionFile.Turn] = []   // completed turns (user+assistant pairs), persisted
     private var modelChoices: [ModelConfig]?   // non-nil while the /model picker is open
-    private var onboarding = false             // first-run welcome + theme picker
+    private var onboarding = false             // first-run wizard: model → theme
     private var onboardThemeIdx = 0
+    // First-run model picker (P): show detected local models + cloud providers.
+    private enum OnboardStep { case model, cloud, theme }
+    private var onboardStep: OnboardStep = .model
+    private var onboardSel = 0                  // row in the combined model list
+    private let discovered: [ModelConfig]       // local models found before launch
+    private var cloudIdx = 0                    // chosen provider in cloudProviders
+    private var cloudField = 0                  // 0 = model-id field, 1 = API-key field
+    private var cloudModelText = ""
+    private var cloudKeyText = ""
+    private var chosenProvider: String?         // persisted to config on finish
+    private var chosenAPIKey: String?
+    private struct CloudProvider { let id: String; let label: String; let model: String }
+    private static let cloudProviders: [CloudProvider] = [
+        .init(id: "openai",     label: "OpenAI",          model: "gpt-4o"),
+        .init(id: "anthropic",  label: "Anthropic (Claude)", model: "claude-sonnet-4-6"),
+        .init(id: "gemini",     label: "Google Gemini",   model: "gemini-2.0-flash"),
+        .init(id: "openrouter", label: "OpenRouter",      model: ""),
+        .init(id: "nvidia",     label: "NVIDIA NIM",      model: ""),
+    ]
     private let autoReview: Bool               // run a reviewer pass after each build
     private var reviewing = false
     private var lastRequest: String?           // the just-finished turn's prompt (for /review)
@@ -130,9 +149,11 @@ final class TUIApp {
     private static let spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
     init(size: Size, engine: Engine, modelName: String, framework: String, verbose: Bool,
-         theme: ANSITheme = .midnight, resume: SessionFile? = nil, firstRun: Bool = false, autoReview: Bool = true) {
+         theme: ANSITheme = .midnight, resume: SessionFile? = nil, firstRun: Bool = false, autoReview: Bool = true,
+         discovered: [ModelConfig] = []) {
         self.size = size
         self.engine = engine
+        self.discovered = discovered
         self.modelName = modelName
         self.framework = framework
         self.verbose = verbose
@@ -141,6 +162,7 @@ final class TUIApp {
         self.skills = SkillStore.load(projectRoot: engine.workspace.root)
         if firstRun {
             onboarding = true
+            onboardStep = .model                 // pick a model first, then theme
             onboardThemeIdx = ANSITheme.all.firstIndex { $0.name == theme.name } ?? 0
         }
         if let resume {
@@ -408,7 +430,10 @@ final class TUIApp {
         switch ev {
         case .state(let s):
             status = Self.label(for: s)
-            if case .failed(let why) = s { transcript.append(Line(role: .error, text: "✗ \(why.prefix(200))")) }
+            if case .failed(let why) = s {
+                transcript.append(Line(role: .error, text: "✗ \(why.prefix(200))"))
+                if let hint = Self.failureHint(why) { transcript.append(Line(role: .system, text: "  → \(hint)")) }
+            }
         case .assistantText(let t):
             if assistantLineIndex == nil {
                 transcript.append(Line(role: .assistant, text: ""))
@@ -574,32 +599,192 @@ final class TUIApp {
 
     // MARK: - Onboarding (first run)
 
+    private var onboardRowCount: Int { discovered.count + Self.cloudProviders.count }
+
     private func handleOnboardingKey(_ key: Key) {
+        switch onboardStep {
+        case .model: handleOnboardModelKey(key)
+        case .cloud: handleOnboardCloudKey(key)
+        case .theme: handleOnboardThemeKey(key)
+        }
+    }
+
+    private func handleOnboardModelKey(_ key: Key) {
         switch key {
-        case .left:
-            onboardThemeIdx = (onboardThemeIdx - 1 + ANSITheme.all.count) % ANSITheme.all.count
-            theme = ANSITheme.all[onboardThemeIdx]; prev = nil; needsRender = true
-        case .right:
-            onboardThemeIdx = (onboardThemeIdx + 1) % ANSITheme.all.count
-            theme = ANSITheme.all[onboardThemeIdx]; prev = nil; needsRender = true
-        case .enter, .escape:
-            finishOnboarding()
+        case .up:   onboardSel = (onboardSel - 1 + onboardRowCount) % onboardRowCount; needsRender = true
+        case .down: onboardSel = (onboardSel + 1) % onboardRowCount; needsRender = true
+        case .enter:
+            if onboardSel < discovered.count {                       // a detected local model
+                let m = discovered[onboardSel]
+                engine.config = m; modelName = m.displayName
+                chosenProvider = m.source.rawValue; chosenAPIKey = nil
+                onboardStep = .theme
+            } else {                                                  // a cloud provider → enter key
+                cloudIdx = onboardSel - discovered.count
+                cloudModelText = Self.cloudProviders[cloudIdx].model
+                cloudKeyText = ""; cloudField = cloudModelText.isEmpty ? 0 : 1
+                onboardStep = .cloud
+            }
+            needsRender = true
+        case .escape: onboardStep = .theme; needsRender = true       // skip → keep current default
         default: break
         }
     }
 
+    private func handleOnboardCloudKey(_ key: Key) {
+        let p = Self.cloudProviders[cloudIdx]
+        switch key {
+        case .escape: onboardStep = .model; needsRender = true
+        case .tab:    cloudField = 1 - cloudField; needsRender = true
+        case .backspace:
+            if cloudField == 0 { if !cloudModelText.isEmpty { cloudModelText.removeLast() } }
+            else if !cloudKeyText.isEmpty { cloudKeyText.removeLast() }
+            needsRender = true
+        case .char(let c):
+            if cloudField == 0 { cloudModelText.append(c) } else { cloudKeyText.append(c) }
+            needsRender = true
+        case .enter:
+            if cloudField == 0 { cloudField = 1; needsRender = true; return }
+            let model = cloudModelText.trimmingCharacters(in: .whitespaces)
+            let keyStr = cloudKeyText.trimmingCharacters(in: .whitespaces)
+            guard !model.isEmpty, !keyStr.isEmpty else { needsRender = true; return }  // both required
+            engine.config = Self.cloudConfig(provider: p.id, model: model, key: keyStr)
+            modelName = engine.config.displayName
+            chosenProvider = p.id; chosenAPIKey = keyStr
+            onboardStep = .theme; needsRender = true
+        default: break
+        }
+    }
+
+    private func handleOnboardThemeKey(_ key: Key) {
+        switch key {
+        case .left:  onboardThemeIdx = (onboardThemeIdx - 1 + ANSITheme.all.count) % ANSITheme.all.count
+                     theme = ANSITheme.all[onboardThemeIdx]; prev = nil; needsRender = true
+        case .right: onboardThemeIdx = (onboardThemeIdx + 1) % ANSITheme.all.count
+                     theme = ANSITheme.all[onboardThemeIdx]; prev = nil; needsRender = true
+        case .enter, .escape: finishOnboarding()
+        default: break
+        }
+    }
+
+    private static func cloudConfig(provider: String, model: String, key: String) -> ModelConfig {
+        switch provider {
+        case "anthropic":  return .anthropic(key: key, model: model)
+        case "gemini":     return .gemini(key: key, model: model)
+        case "openrouter": return .openRouter(key: key, model: model)
+        case "nvidia":     return .nvidiaNIM(key: key, model: model)
+        default:           return .openAI(key: key, model: model)
+        }
+    }
+
+    /// A friendlier, actionable hint for the common model-connection failures a
+    /// beginner hits — instead of leaving them with a raw NSURLError dump.
+    private static func failureHint(_ why: String) -> String? {
+        let w = why.lowercased()
+        if w.contains("could not connect") || w.contains("connection refused") || w.contains("-1004") {
+            return "Kan ikke nå modellen — kører Ollama / LM Studio? Vælg en anden med /model."
+        }
+        if w.contains("more system memory") || w.contains("out of memory") {
+            return "Modellen er for stor til din maskines RAM — vælg en mindre model med /model."
+        }
+        if w.contains("timed out") || w.contains("-1001") {
+            return "Modellen svarede ikke i tide — prøv en mindre/hurtigere model med /model."
+        }
+        if w.contains("401") || w.contains("unauthorized") || w.contains("api key") || w.contains("invalid_api_key") {
+            return "API-nøglen blev afvist — tjek den (kør /model for at vælge model igen)."
+        }
+        return nil
+    }
+
     private func finishOnboarding() {
         onboarding = false
-        var c = StormbreakerConfig.load(); c.onboarded = true; c.theme = theme.name; c.save()
-        transcript.append(Line(role: .system, text: "Tema: \(theme.name). Skriv hvad du vil bygge og tryk Enter — / for kommandoer."))
+        var c = StormbreakerConfig.load()
+        c.onboarded = true; c.theme = theme.name
+        if let p = chosenProvider {                                  // persist the picked model
+            c.provider = p; c.model = engine.config.modelID
+            if p == "ollama" || p == "lmStudio" { c.baseURL = engine.config.baseURL.absoluteString }
+            if let k = chosenAPIKey { c.apiKey = k }                 // CLI config (chmod 600 on save)
+        }
+        c.save()
+        transcript.append(Line(role: .system,
+            text: "Model: \(modelName) · tema: \(theme.name). Beskriv hvad du vil bygge og tryk Enter — / for kommandoer."))
         prev = nil; needsRender = true
     }
 
+    private func onboardSourceLabel(_ s: ModelConfig.Source) -> String {
+        switch s { case .ollama: return "Ollama"; case .lmStudio: return "LM Studio"; case .cloud: return "Cloud" }
+    }
+
     private func drawOnboarding(_ buf: ScreenBuffer) {
+        switch onboardStep {
+        case .model: drawOnboardModel(buf)
+        case .cloud: drawOnboardCloud(buf)
+        case .theme: drawOnboardTheme(buf)
+        }
+    }
+
+    private func drawOnboardModel(_ buf: ScreenBuffer) {
+        let r = Rect(x: 0, y: 0, w: size.cols, h: size.rows)
+        func cx(_ s: String) -> Int { max(0, (size.cols - TextWidth.width(s)) / 2) }
+        let block = Self.logo.count + 5 + onboardRowCount
+        var y = max(1, (size.rows - block) / 2)
+        for line in Self.logo { buf.text(line, x: cx(line), y: y, theme.accentBold, clip: r); y += 1 }
+        y += 1
+        let greet = "Velkommen til Stormbreaker"
+        buf.text(greet, x: cx(greet), y: y, base, clip: r); y += 1
+        let sub = discovered.isEmpty
+            ? "Ingen lokale modeller fundet — vælg en cloud-udbyder:"
+            : "Vælg en model (fundet lokalt + cloud):"
+        buf.text(sub, x: cx(sub), y: y, theme.dimStyle, clip: r); y += 2
+        let listW = 50
+        let lx = max(2, (size.cols - listW) / 2)
+        for i in 0..<onboardRowCount {
+            let sel = i == onboardSel
+            let name: String, tag: String
+            if i < discovered.count {
+                name = discovered[i].displayName; tag = onboardSourceLabel(discovered[i].source)
+            } else {
+                name = Self.cloudProviders[i - discovered.count].label; tag = "cloud · API-nøgle"
+            }
+            let left = (sel ? "› " : "  ") + TextWidth.truncate(name, toWidth: 30)
+            let padded = left + String(repeating: " ", count: max(1, listW - 14 - TextWidth.width(left)))
+            buf.text(TextWidth.truncate(padded + tag, toWidth: listW), x: lx, y: y,
+                     sel ? theme.accentBold : base, clip: r)
+            y += 1
+        }
+        y += 1
+        let hint = "↑ ↓  vælg     ↵  videre     Esc  spring over"
+        buf.text(hint, x: cx(hint), y: y, theme.dimStyle, clip: r)
+    }
+
+    private func drawOnboardCloud(_ buf: ScreenBuffer) {
+        let r = Rect(x: 0, y: 0, w: size.cols, h: size.rows)
+        func cx(_ s: String) -> Int { max(0, (size.cols - TextWidth.width(s)) / 2) }
+        let p = Self.cloudProviders[cloudIdx]
+        var y = max(2, size.rows / 2 - 4)
+        let title = "\(p.label) — opsætning"
+        buf.text(title, x: cx(title), y: y, theme.accentBold, clip: r); y += 2
+        let fx = max(2, (size.cols - 52) / 2)
+        drawOnboardField(buf, x: fx, y: y, label: "Model-id:", value: cloudModelText, active: cloudField == 0, masked: false); y += 2
+        drawOnboardField(buf, x: fx, y: y, label: "API-nøgle:", value: cloudKeyText, active: cloudField == 1, masked: true); y += 2
+        let hint = "↵ næste felt / færdig    ⇥ skift felt    Esc tilbage"
+        buf.text(hint, x: cx(hint), y: y, theme.dimStyle, clip: r)
+    }
+
+    private func drawOnboardField(_ buf: ScreenBuffer, x: Int, y: Int, label: String, value: String, active: Bool, masked: Bool) {
+        let r = Rect(x: 0, y: 0, w: size.cols, h: size.rows)
+        buf.text(label, x: x, y: y, active ? theme.accentBold : theme.dimStyle, clip: r)
+        let shown = masked ? String(repeating: "•", count: value.count) : value
+        let inner = TextWidth.truncate(shown, toWidth: 36)
+        let box = "[ " + inner + (active ? "▍" : "") + String(repeating: " ", count: max(0, 36 - TextWidth.width(inner))) + " ]"
+        buf.text(box, x: x + 12, y: y, active ? base : theme.dimStyle, clip: r)
+    }
+
+    private func drawOnboardTheme(_ buf: ScreenBuffer) {
         let r = Rect(x: 0, y: 0, w: size.cols, h: size.rows)
         func cx(_ s: String) -> Int { max(0, (size.cols - TextWidth.width(s)) / 2) }
         let greet = "Velkommen til Stormbreaker"
-        let modelLine = "Model:   \(modelName)   ·   skift med /model"
+        let modelLine = "Model:   \(modelName)"
         let combo = "Tema:    ‹ \(theme.name) ›"
         let hint = "← →  vælg tema       ↵  begynd"
         let block = Self.logo.count + 6
