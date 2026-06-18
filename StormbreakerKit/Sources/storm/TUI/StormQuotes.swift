@@ -309,12 +309,12 @@ enum StormQuotes {
         "Plot twist: it's a caching issue",
     ]
 
-    /// A status line for a "working" agent state, or nil for states that should
-    /// keep their literal label (HMR/errors/repair/clean/failed).
-    static func line(for state: AgentState) -> String? {
+    /// Whether this state is a "working" phase that should show a fun quote (vs a
+    /// literal label like HMR/errors/repair/clean/failed).
+    static func isWorking(_ state: AgentState) -> Bool {
         switch state {
-        case .planning, .building, .applying: return working.randomElement()
-        default: return nil
+        case .planning, .building, .applying: return true
+        default: return false
         }
     }
 }

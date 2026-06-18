@@ -213,8 +213,9 @@ final class TUIApp {
             case .tick:
                 if isBusy || reviewing {
                     spinnerFrame += 1
-                    // Rotate the fun quote every ~2.8s during a long build.
-                    if isBusy, statusIsQuote, spinnerFrame % 28 == 0 { status = StormQuotes.working.randomElement() ?? status }
+                    // Rotate the fun quote only ~once a minute on long turns (the
+                    // spinner already shows it's alive — no need to flash).
+                    if isBusy, statusIsQuote, spinnerFrame > 0, spinnerFrame % 600 == 0 { status = StormQuotes.working.randomElement() ?? status }
                     needsRender = true
                 }
             case .agent(let e):         applyAgent(e)
@@ -436,10 +437,21 @@ final class TUIApp {
     private func applyAgent(_ ev: AgentEvent) {
         switch ev {
         case .state(let s):
-            if let quote = StormQuotes.line(for: s) { status = quote; statusIsQuote = true }
-            else { status = Self.label(for: s); statusIsQuote = false }
+            if StormQuotes.isWorking(s) {
+                // Keep ONE quote stable across plan→build→install (don't flash a new
+                // one per transition); it only rotates on the ~60s timer below.
+                if !statusIsQuote { status = StormQuotes.working.randomElement() ?? status; statusIsQuote = true }
+            } else {
+                status = Self.label(for: s); statusIsQuote = false
+            }
             if case .failed(let why) = s {
-                transcript.append(Line(role: .error, text: "✗ \(why.prefix(200))"))
+                // Show the headline as an error, then the real detail (npm/vite output)
+                // as dim lines, then an actionable hint — instead of one truncated blob.
+                let lines = why.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+                transcript.append(Line(role: .error, text: "✗ \((lines.first ?? "").prefix(160))"))
+                for extra in lines.dropFirst().prefix(8) where !extra.trimmingCharacters(in: .whitespaces).isEmpty {
+                    transcript.append(Line(role: .system, text: "  \(extra.prefix(160))"))
+                }
                 if let hint = Self.failureHint(why) { transcript.append(Line(role: .system, text: "  → \(hint)")) }
             }
         case .assistantText(let t):
@@ -704,6 +716,19 @@ final class TUIApp {
         }
         if w.contains("401") || w.contains("unauthorized") || w.contains("api key") || w.contains("invalid_api_key") {
             return "API-nøglen blev afvist — tjek den (kør /model for at vælge model igen)."
+        }
+        // npm / install / node failures (the real npm output is now in the message)
+        if w.contains("eresolve") || w.contains("peer dep") {
+            return "Afhængigheds-konflikt (peer deps) — prøv igen, eller bed om en anden pakke."
+        }
+        if w.contains("enotfound") || w.contains("etimedout") || w.contains("getaddrinfo") || w.contains("network") || w.contains("registry") {
+            return "Netværksfejl under install — tjek din internetforbindelse og prøv igen."
+        }
+        if w.contains("node runtime not found") || (w.contains("not found") && w.contains("node")) {
+            return "Node mangler — installér Node (nodejs.org eller `brew install node`) og prøv igen."
+        }
+        if w.contains("install failed") || w.contains("npm err") {
+            return "Pakke-installation fejlede — se fejlen ovenfor; ofte node-version eller en pakke der ikke findes."
         }
         return nil
     }

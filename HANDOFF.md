@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `a30859b` 2026-06-18 — TUI polish: fun status quotes, "lokal" cost, git nested-repo fix, /copy
 - `7ce7daa` 2026-06-18 — CLI onboarding: pick a model (local + cloud) on first run + friendlier errors
 - `461a440` 2026-06-18 — Fix TUI crash on terminal resize (SIGWINCH handler isolation)
 - `f70aa56` 2026-06-18 — Rename Forge → Stormbreaker across the codebase (command: storm)
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `fe54620` 2026-06-17 — TUI: opencode-style redesign + first-run onboarding
 - `6749c15` 2026-06-17 — forge CLI: one-command install script (build release + symlink onto PATH)
 - `50f7c05` 2026-06-17 — TUI P12 (opencode/nanocoder): slash-menu + themes + /init + flip to default
-- `c444ef2` 2026-06-17 — TUI P11 (opencode/nanocoder): session resume + undo/restore
 <!-- COMMITLOG:END -->

@@ -22,13 +22,15 @@ public actor StormbreakerProcessLayer: ProcessLayer {
     public func addDependencies(_ packages: [String]) async throws {
         guard !packages.isEmpty else { return }
         let command = "npm install " + packages.joined(separator: " ")
-        let code = try await runToExit(command)
-        if code != 0 { throw DevServerError.installFailed(exitCode: code, tail: []) }
+        let (code, log) = try await runToExit(command)
+        // Carry the actual npm output (404, ERESOLVE, network, …) so the failure is
+        // diagnosable instead of just "exit code 1".
+        if code != 0 { throw DevServerError.installFailed(exitCode: code, tail: Array(log.suffix(20))) }
     }
 
     @discardableResult
     public func runShell(_ command: String) async throws -> Int32 {
-        try await runToExit(command)
+        try await runToExit(command).code
     }
 
     @discardableResult
@@ -41,12 +43,17 @@ public actor StormbreakerProcessLayer: ProcessLayer {
         get async { await devServer.serverReadyURL }
     }
 
-    private func runToExit(_ command: String) async throws -> Int32 {
+    private func runToExit(_ command: String) async throws -> (code: Int32, log: [LogLine]) {
         let (events, _) = try await devServer.runShellCommand(command)
         var code: Int32 = -1
+        var log: [LogLine] = []
         for await event in events {
-            if case .exited(let exitCode) = event { code = exitCode }
+            switch event {
+            case .log(let line): log.append(line)
+            case .exited(let exitCode): code = exitCode
+            default: break
+            }
         }
-        return code
+        return (code, log)
     }
 }
