@@ -139,6 +139,8 @@ final class TUIApp {
     private var queue: [QueueItem] = []        // the build kø (KØ sidebar section)
     private var queueSeq = 0                   // monotonic id source
     private var currentQueueID: Int?           // the kø item currently building (nil = a plain turn)
+    private var todos: [TodoItem] = []         // the agent's live plan checklist (PLAN sidebar section)
+    private var sawExplicitTodos = false       // a <forgeAction type="todo"> wins over prose detection
     private var pendingPermission: (PermissionRequest, CheckedContinuation<PermissionDecision, Never>)?
     private var turnTask: Task<Void, Never>?
     private var running = true
@@ -309,7 +311,7 @@ final class TUIApp {
         scroll = 0
         transcript.append(Line(role: .user, text: text))
         pendingUser = text
-        liveFile = nil; liveBuffer = ""
+        liveFile = nil; liveBuffer = ""; todos = []; sawExplicitTodos = false   // fresh checklist per turn
         isBusy = true; status = StormQuotes.working.randomElement() ?? "Tænker…"; statusIsQuote = true; spinnerFrame = 0
         let engine = self.engine
         let prior = history
@@ -513,6 +515,9 @@ final class TUIApp {
             }
             currentAssistant = (currentAssistant ?? "") + t
             if let i = assistantLineIndex, transcript.indices.contains(i) { transcript[i].text = currentAssistant ?? "" }
+            // Fallback: surface a markdown checklist the model wrote as prose (unless it
+            // used the explicit todo action, which takes precedence).
+            if !sawExplicitTodos, let parsed = TodoItem.fromProse(currentAssistant ?? "") { todos = parsed }
         case .fileWriting(let path):
             liveFile = path; liveBuffer = ""; sidePane = .live   // watch the code as it streams
         case .fileChunk(let path, let text):
@@ -531,6 +536,8 @@ final class TUIApp {
             mSeconds += m.totalSeconds
             if let t = m.timeToFirstTokenSeconds { mLastTTFT = t }
             if let c = engine.config.cost(promptTokens: m.promptTokens, completionTokens: m.completionTokens) { mCostUSD += c }
+        case .todos(let items):
+            todos = items; sawExplicitTodos = true            // explicit tag wins over prose detection
         case .reasoning, .usage:
             break
         }
@@ -924,6 +931,15 @@ final class TUIApp {
     /// The side pane: the live-streaming file (syntax-highlighted, with a gutter), or
     /// an info card. Tab toggles which one is shown while a file is streaming.
     private func renderSide(_ buf: ScreenBuffer, _ rect: Rect) {
+        // A live plan checklist (when present) gets a small panel at the TOP of the
+        // column, ABOVE whichever pane is active — so it stays visible even while the
+        // live-file view shows code streaming in during the build.
+        var rect = rect
+        if !todos.isEmpty, rect.h >= 8 {
+            let h = min(todos.count + 2, max(4, rect.h / 2))
+            renderPlan(buf, Rect(x: rect.x, y: rect.y, w: rect.w, h: h))
+            rect = Rect(x: rect.x, y: rect.y + h, w: rect.w, h: rect.h - h)
+        }
         switch sidePane {
         case .diff:
             buf.box(rect, dimStyle, title: "Diff")
@@ -952,6 +968,29 @@ final class TUIApp {
             }
         case .context, .live:                                    // .live with no file yet → context
             renderContext(buf, rect)
+        }
+    }
+
+    /// Compact, always-visible plan checklist (todowrite-style) at the top of the side
+    /// column during a build: ✓ done · spinner active · ○ to-do.
+    private func renderPlan(_ buf: ScreenBuffer, _ rect: Rect) {
+        let done = todos.filter { $0.status == .done }.count
+        buf.box(rect, dimStyle, title: "Plan \(done)/\(todos.count)")
+        let inner = rect.inset(1)
+        guard inner.h > 0, inner.w > 4 else { return }
+        let overflow = todos.count > inner.h
+        let shown = overflow ? max(0, inner.h - 1) : todos.count
+        for (i, t) in todos.prefix(shown).enumerated() {
+            let icon: String, st: Style
+            switch t.status {
+            case .done:    icon = "✓"; st = theme.on(theme.ok)
+            case .active:  icon = Self.spinner[spinnerFrame % Self.spinner.count]; st = theme.accentStyle
+            case .pending: icon = "○"; st = dimStyle
+            }
+            buf.text(TextWidth.truncate("\(icon) \(t.text)", toWidth: inner.w), x: inner.x, y: inner.y + i, st, clip: inner)
+        }
+        if overflow {
+            buf.text("+\(todos.count - shown) flere", x: inner.x, y: inner.y + shown, dimStyle, clip: inner)
         }
     }
 

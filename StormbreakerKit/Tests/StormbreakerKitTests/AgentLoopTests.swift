@@ -153,6 +153,39 @@ final class AgentLoopTests: XCTestCase {
         XCTAssertFalse(hasFailure(s))
     }
 
+    func testTodoUpdatesSurfacedAsEventsWithoutBlockingBuild() async throws {
+        let withTodos = """
+        Planning.
+        <forgeArtifact id="a" title="A">
+        <forgeAction type="todo">
+        [~] Build the thing
+        [ ] Polish
+        </forgeAction>
+        <forgeAction type="file" filePath="src/App.tsx">export default function App(){return <div>hi</div>}</forgeAction>
+        <forgeAction type="start">npm run dev</forgeAction>
+        </forgeArtifact>
+        """
+        let process = NoopProcess()
+        let errors = ScriptedErrors([ErrorReport()])
+        let loop = AgentLoop(.init(
+            provider: ScriptedModel([withTodos]),
+            options: GenerationOptions(),
+            process: process,
+            collectErrors: { await errors.next() },
+            settleDelay: .milliseconds(1)))
+
+        let events = await collect(loop.run(userPrompt: "x", history: []))
+        let todoEvents = events.compactMap { e -> [TodoItem]? in
+            if case .todos(let t) = e { return t }; return nil
+        }
+        XCTAssertEqual(todoEvents.count, 1)
+        XCTAssertEqual(todoEvents.first?.count, 2)
+        XCTAssertEqual(todoEvents.first?.first?.status, .active)
+        XCTAssertTrue(states(events).contains(.clean), "todo is not a tool round/repair — the build still completes")
+        let written = await process.written
+        XCTAssertEqual(written, ["src/App.tsx"], "todo action doesn't block the file write")
+    }
+
     func testPlanModeStreamsPlanAndWritesNothing() async throws {
         let plan = "Here is the plan:\n1. Create src/App.tsx\n2. Add a centered button"
         let process = NoopProcess()

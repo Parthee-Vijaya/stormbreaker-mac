@@ -15,6 +15,7 @@ public enum ParserEvent: Sendable, Equatable {
     case readRequest(path: String)                  // A2b: model asks to see a file's contents
     case mcpRequest(server: String, tool: String, arguments: String)  // model asks to call an MCP tool
     case webRequest(kind: WebRequestKind, query: String)  // model asks to fetch a URL or search the web
+    case todoUpdate([TodoItem])                     // model emitted/updated its plan checklist
     case artifactClose
 }
 

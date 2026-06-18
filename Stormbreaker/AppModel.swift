@@ -141,6 +141,7 @@ final class AppModel: PermissionGate {
     var previewURL: URL?
     var serverPhase: DevServerPhase = .idle   // dev-server lifecycle, mirrored for the preview UI
     var phase: AgentState = .idle
+    var planTodos: [TodoItem] = []            // the agent's live plan checklist (todowrite-style)
     var previewWidth: PreviewWidth = .full
     var reloadToken: Int = 0
     var rightPaneMode: RightPaneMode = .preview
@@ -2139,6 +2140,8 @@ final class AppModel: PermissionGate {
             case .previewReady(let url):
                 previewURL = url
                 endStreaming()
+            case .todos(let items):
+                planTodos = items
             case .usage(let pt, let ct):
                 turnTokens += pt + ct
                 projectTokens += pt + ct

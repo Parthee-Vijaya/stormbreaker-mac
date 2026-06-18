@@ -39,8 +39,8 @@ public actor ActionExecutor {
         case .artifactClose:
             try await flush()
         case .text, .artifactOpen, .fileOpen, .fileChunk, .lineReplaceOpen,
-             .readRequest, .mcpRequest, .webRequest, .inlineAction(.file), .inlineAction(.lineReplace):
-            break   // .mcpRequest / .webRequest are handled by the AgentLoop tool-round, not the executor
+             .readRequest, .mcpRequest, .webRequest, .todoUpdate, .inlineAction(.file), .inlineAction(.lineReplace):
+            break   // .mcpRequest / .webRequest / .todoUpdate are surfaced by the AgentLoop, not the executor
         }
     }
 

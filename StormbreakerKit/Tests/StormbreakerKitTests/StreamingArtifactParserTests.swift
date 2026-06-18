@@ -85,6 +85,31 @@ final class StreamingArtifactParserTests: XCTestCase {
         }
     }
 
+    func testTodoActionEmitsUpdateWithoutBlockingFiles() {
+        let input = """
+        <forgeArtifact id="x" title="X">
+        <forgeAction type="todo">
+        [x] Scaffold
+        [~] Hero
+        [ ] Footer
+        </forgeAction>
+        <forgeAction type="file" filePath="src/App.tsx">export default function App(){return null}</forgeAction>
+        </forgeArtifact>
+        """
+        for chunk in [Int.max, 1, 11] {
+            let events = parse(input, chunkSize: chunk)
+            let todos = events.compactMap { e -> [TodoItem]? in
+                if case .todoUpdate(let t) = e { return t }; return nil
+            }
+            XCTAssertEqual(todos.count, 1, "chunk \(chunk)")
+            XCTAssertEqual(todos.first?.count, 3, "chunk \(chunk)")
+            XCTAssertEqual(todos.first?[0].status, .done, "chunk \(chunk)")
+            XCTAssertEqual(todos.first?[1].status, .active, "chunk \(chunk)")
+            let wroteApp = events.contains { if case .fileClose(let p, _) = $0 { return p == "src/App.tsx" }; return false }
+            XCTAssertTrue(wroteApp, "todo action must not block the file write (chunk \(chunk))")
+        }
+    }
+
     /// Regression (dogfood, Svelte/qwen): the model wrote the file but omitted the
     /// inner </forgeAction>, jumping straight to </forgeArtifact>. The close tag must
     /// NOT leak into the file body — it made Svelte components end with a literal

@@ -305,6 +305,9 @@ public actor AgentLoop {
                 continuation.yield(.assistantText(kind == .search ? "\n_Søger på nettet: \(query)…_\n"
                                                                    : "\n_Henter \(query)…_\n"))
                 return nil
+            case .todoUpdate(let items):
+                continuation.yield(.todos(items))   // live checklist; not a tool round, build continues
+                return nil
             case .artifactClose where !reads.isEmpty || !mcpReqs.isEmpty || !webReqs.isEmpty:
                 return nil   // tool-request artifact: don't install/start — the tool round handles it
             case .artifactClose:
