@@ -73,10 +73,19 @@ public actor ActionExecutor {
             pendingDeps.removeAll()
         }
         for command in pendingShell {
-            if await approved(.shell(command: command)) {
+            // Per-command triage: safe dev tooling runs without a prompt, catastrophic
+            // patterns are refused outright, the rest fall through to the gate.
+            switch ShellRules.classify(command) {
+            case .allow:
                 _ = try await process.runShell(command)
-            } else {
-                deniedActions.append(PermissionRequest.shell(command: command).label)
+            case .deny:
+                deniedActions.append("blokerede en potentielt farlig kommando: \(command)")
+            case .ask:
+                if await approved(.shell(command: command)) {
+                    _ = try await process.runShell(command)
+                } else {
+                    deniedActions.append(PermissionRequest.shell(command: command).label)
+                }
             }
         }
         pendingShell.removeAll()

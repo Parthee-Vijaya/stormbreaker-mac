@@ -82,7 +82,7 @@ final class ActionExecutorTests: XCTestCase {
         let executor = ActionExecutor(process: mock, gate: FixedGate(.deny))
         let events: [ParserEvent] = [
             .inlineAction(.addDependency(package: "left-pad")),
-            .inlineAction(.shell(command: "rm -rf /")),
+            .inlineAction(.shell(command: "git push origin main")),  // ask-classified → hits the gate
             .fileClose(path: "src/App.tsx", contents: "// ok"),
             .artifactClose,
         ]
@@ -96,6 +96,30 @@ final class ActionExecutorTests: XCTestCase {
         XCTAssertEqual(writes.map(\.0), ["src/App.tsx"], "file writes are NOT gated")
         let denied = await executor.denied
         XCTAssertEqual(denied.count, 2, "both denied actions recorded for model feedback")
+    }
+
+    // Per-command shell triage (opencode borrow): safe commands run WITHOUT asking
+    // the gate, catastrophic ones are refused even under an allow-all gate.
+    func testSafeShellRunsWithoutAskingDenyGate() async throws {
+        let mock = MockProcessLayer()
+        let executor = ActionExecutor(process: mock, gate: FixedGate(.deny))   // would deny if asked
+        try await executor.handle(.inlineAction(.shell(command: "npm run build")))
+        try await executor.handle(.artifactClose)
+        let shells = await mock.shells
+        XCTAssertEqual(shells, ["npm run build"], "safe dev command bypasses the gate")
+        let denied = await executor.denied
+        XCTAssertTrue(denied.isEmpty)
+    }
+
+    func testCatastrophicShellBlockedUnderAllowGate() async throws {
+        let mock = MockProcessLayer()
+        let executor = ActionExecutor(process: mock, gate: FixedGate(.allow))   // even if it says allow
+        try await executor.handle(.inlineAction(.shell(command: "rm -rf /")))
+        try await executor.handle(.artifactClose)
+        let shells = await mock.shells
+        XCTAssertTrue(shells.isEmpty, "catastrophic command never runs")
+        let denied = await executor.denied
+        XCTAssertEqual(denied.count, 1, "blocked command is reported back to the model")
     }
 
     func testAllowGateRunsDepsAndShell() async throws {

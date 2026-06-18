@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `278b99c` 2026-06-18 — Read URLs the user pastes (GitHub repos / pages) instead of hallucinating
 - `1ab5eae` 2026-06-18 — Audit fixes: persist /model + show picker when no model configured
 - `e254b02` 2026-06-18 — Multi-agent review panel: /review spins up 4 parallel agents
 - `1bdd3ae` 2026-06-18 — Surface real install/build errors + slow the status quotes down
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `c3f12fb` 2026-06-18 — Reviewer RA2 (agentic-SDLC borrow): reviewer in the CLI/TUI
 - `788f696` 2026-06-17 — Reviewer RA1 (agentic-SDLC borrow): ReviewAgent core + parser
 - `1d5837b` 2026-06-17 — TUI: persistent Kontekst sidebar (opencode-style)
-- `1259a7a` 2026-06-17 — TUI: clearer FORGE wordmark logo (half-block font)
 <!-- COMMITLOG:END -->
