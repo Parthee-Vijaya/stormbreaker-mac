@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `20a3507` 2026-06-19 — Security: untrusted-content boundary on file/MCP/error turns
 - `4172305` 2026-06-19 — Security (H3): resolve symlinks before the write-jail containment check
 - `07ef1d4` 2026-06-19 — Security (H2): SSRF guard on all outbound web requests
 - `a5e3faf` 2026-06-19 — Security (C6): confirm before launching project-local MCP servers
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `1ab5eae` 2026-06-18 — Audit fixes: persist /model + show picker when no model configured
 - `e254b02` 2026-06-18 — Multi-agent review panel: /review spins up 4 parallel agents
 - `1bdd3ae` 2026-06-18 — Surface real install/build errors + slow the status quotes down
-- `a30859b` 2026-06-18 — TUI polish: fun status quotes, "lokal" cost, git nested-repo fix, /copy
 <!-- COMMITLOG:END -->

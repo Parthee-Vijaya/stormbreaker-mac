@@ -264,6 +264,15 @@ final class TUIApp {
             if isBusy { cancelTurn() } else if !input.isEmpty { input = ""; cursor = 0; needsRender = true }
         case .char(let c):
             input.insert(c, at: input.index(input.startIndex, offsetBy: cursor)); cursor += 1; needsRender = true
+        case .paste(let text):
+            // Bracketed paste arrives as ONE event — insert it as text, never as Enter,
+            // and flatten newlines so a multi-line paste becomes a single prompt line
+            // (without this the terminal sent each \n as Enter, submitting partial input).
+            let clean = text.replacingOccurrences(of: "\r\n", with: " ")
+                            .replacingOccurrences(of: "\n", with: " ")
+                            .replacingOccurrences(of: "\r", with: " ")
+            input.insert(contentsOf: clean, at: input.index(input.startIndex, offsetBy: cursor))
+            cursor += clean.count; needsRender = true
         case .backspace:
             if cursor > 0 { input.remove(at: input.index(input.startIndex, offsetBy: cursor - 1)); cursor -= 1; needsRender = true }
         case .delete:

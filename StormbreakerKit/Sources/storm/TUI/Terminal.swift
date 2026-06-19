@@ -32,7 +32,7 @@ private func rawWrite(_ s: StaticString) {
 func tuiRestore() {
     guard tuiEntered else { return }
     tuiEntered = false
-    rawWrite("\u{1B}[?25h\u{1B}[?1049l")             // show cursor, leave alt screen
+    rawWrite("\u{1B}[?2004l\u{1B}[?25h\u{1B}[?1049l") // bracketed paste off, show cursor, leave alt screen
     if tuiSavedValid { _ = tcsetattr(STDIN_FILENO, TCSAFLUSH, &tuiSavedTermios) }
 }
 
@@ -74,7 +74,7 @@ final class Terminal {
         tuiSavedValid = true
         cfmakeraw(&raw)                              // no echo/canonical/signals; sets VMIN=1,VTIME=0 on Darwin
         if tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) != 0 { throw TUIError.termios(errno) }
-        rawWrite("\u{1B}[?1049h\u{1B}[?25l\u{1B}[2J\u{1B}[H")   // alt screen · hide cursor · clear · home
+        rawWrite("\u{1B}[?1049h\u{1B}[?25l\u{1B}[2J\u{1B}[H\u{1B}[?2004h")   // alt screen · hide cursor · clear · home · bracketed paste on
         tuiEntered = true
         installSignalHandlers()
         atexit(tuiAtExit)
