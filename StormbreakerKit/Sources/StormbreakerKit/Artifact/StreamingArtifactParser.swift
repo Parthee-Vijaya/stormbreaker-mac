@@ -101,11 +101,11 @@ public final class StreamingArtifactParser {
             let before = String(buffer[..<marker.lowerBound])
             if !before.isEmpty { events.append(.text(before)) }
             buffer = String(buffer[marker.lowerBound...])
-            guard let gt = buffer.range(of: ">") else { return false } // wait for full tag
-            let tag = String(buffer[..<gt.upperBound])
+            guard let gtEnd = tagCloseIndex(in: buffer) else { return false } // wait for full tag
+            let tag = String(buffer[..<gtEnd])
             events.append(.artifactOpen(id: attribute("id", in: tag) ?? "",
                                         title: attribute("title", in: tag) ?? ""))
-            buffer = String(buffer[gt.upperBound...])
+            buffer = String(buffer[gtEnd...])
             state = .inArtifact
             return true
         }
@@ -150,9 +150,9 @@ public final class StreamingArtifactParser {
     }
 
     private func drainActionTag(_ events: inout [ParserEvent]) -> Bool {
-        guard let gt = buffer.range(of: ">") else { return false } // wait for full opening tag
-        let tag = String(buffer[..<gt.upperBound])
-        buffer = String(buffer[gt.upperBound...])
+        guard let gtEnd = tagCloseIndex(in: buffer) else { return false } // wait for full opening tag
+        let tag = String(buffer[..<gtEnd])
+        buffer = String(buffer[gtEnd...])
         let type = attribute("type", in: tag) ?? ""
         if type == "file" {
             let path = attribute("filePath", in: tag) ?? ""
@@ -319,6 +319,21 @@ public final class StreamingArtifactParser {
             }
         }
         return edits
+    }
+
+    /// Index just past the `>` that closes a tag, ignoring any `>` inside a quoted
+    /// attribute value — so a title like `A > B` doesn't truncate the tag. Returns
+    /// nil while the tag is still incomplete (no closing `>`, or an open quote).
+    private func tagCloseIndex(in s: String) -> String.Index? {
+        var inQuote = false
+        var i = s.startIndex
+        while i < s.endIndex {
+            let c = s[i]
+            if c == "\"" { inQuote.toggle() }
+            else if c == ">" && !inQuote { return s.index(after: i) }
+            i = s.index(after: i)
+        }
+        return nil
     }
 
     private func attribute(_ name: String, in tag: String) -> String? {

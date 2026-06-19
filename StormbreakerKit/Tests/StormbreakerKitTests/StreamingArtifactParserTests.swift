@@ -126,6 +126,25 @@ final class StreamingArtifactParserTests: XCTestCase {
         }
     }
 
+    func testTagAttributeWithAngleBracketIsNotTruncated() {
+        // A title containing '>' must not truncate the tag at the inner '>'; the
+        // file action after it must still parse.
+        let input = """
+        <forgeArtifact id="a1" title="Step 1 > Step 2">
+        <forgeAction type="file" filePath="src/App.tsx">export const x = 1</forgeAction>
+        </forgeArtifact>
+        """
+        for chunk in [Int.max, 1, 9] {
+            let events = parse(input, chunkSize: chunk)
+            let open = events.compactMap { e -> (String, String)? in
+                if case .artifactOpen(let id, let title) = e { return (id, title) }; return nil
+            }.first
+            XCTAssertEqual(open?.1, "Step 1 > Step 2", "title with '>' preserved (chunk \(chunk))")
+            let wrote = files(events).first { $0.0 == "src/App.tsx" }
+            XCTAssertEqual(wrote?.1, "export const x = 1", "file after a '>'-title still parses (chunk \(chunk))")
+        }
+    }
+
     func testFenceOnlyContentIsNotEmptied() {
         // A file whose content strips to nothing (a lone ``` fence) must NOT be
         // written empty — that would be silent data loss. The original is kept.
