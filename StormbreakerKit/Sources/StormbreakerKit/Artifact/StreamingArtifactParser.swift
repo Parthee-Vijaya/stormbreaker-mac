@@ -351,7 +351,12 @@ public final class StreamingArtifactParser {
         if let last = lines.last, last.trimmingCharacters(in: .whitespaces) == "```" {
             lines.removeLast()
         }
-        return lines.joined(separator: "\n")
+        let stripped = lines.joined(separator: "\n")
+        // Never let fence-stripping turn real content into an empty file: if the
+        // input had content but stripping emptied it (a lone ``` line, or a file
+        // that legitimately IS just a fence), keep the original — writing an empty
+        // file here would be silent data loss.
+        return stripped.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? text : stripped
     }
 
     /// Longest suffix of `buffer` that is a (proper) prefix of any needle — the

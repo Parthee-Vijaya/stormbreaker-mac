@@ -126,6 +126,21 @@ final class StreamingArtifactParserTests: XCTestCase {
         }
     }
 
+    func testFenceOnlyContentIsNotEmptied() {
+        // A file whose content strips to nothing (a lone ``` fence) must NOT be
+        // written empty — that would be silent data loss. The original is kept.
+        let input = """
+        <forgeArtifact id="x" title="t">
+        <forgeAction type="file" filePath="src/x.md">```</forgeAction>
+        </forgeArtifact>
+        """
+        for chunk in [Int.max, 1, 7] {
+            let f = files(parse(input, chunkSize: chunk)).first { $0.0 == "src/x.md" }
+            XCTAssertNotNil(f, "chunk \(chunk)")
+            XCTAssertFalse(f?.1.isEmpty ?? true, "fence-only content must not be emptied (chunk \(chunk))")
+        }
+    }
+
     /// Regression (dogfood, Svelte/qwen): the model wrote the file but omitted the
     /// inner </forgeAction>, jumping straight to </forgeArtifact>. The close tag must
     /// NOT leak into the file body — it made Svelte components end with a literal
