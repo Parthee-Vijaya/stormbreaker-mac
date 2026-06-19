@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `69453d4` 2026-06-19 — Read user-referenced local paths for real (+ browser open); stop faking it
 - `94174fd` 2026-06-19 — Bare `storm` launches the chat TUI (+ `stormbreaker` alias)
 - `bebc14e` 2026-06-19 — docs(site): current features + commands + fresh storm-branded CLI screenshots
 - `b3a041b` 2026-06-18 — docs: add CLI architecture slide deck (.pptx) + generator
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `f70aa56` 2026-06-18 — Rename Forge → Stormbreaker across the codebase (command: storm)
 - `d3dae9b` 2026-06-18 — docs: Avanceret CLI-side + curl-installer
 - `8057d5d` 2026-06-18 — v0.3.0: website — CLI/terminal section + new features, version bump
-- `5536484` 2026-06-18 — AgentLoop: keep token accounting when a build fails at artifact-close
 <!-- COMMITLOG:END -->

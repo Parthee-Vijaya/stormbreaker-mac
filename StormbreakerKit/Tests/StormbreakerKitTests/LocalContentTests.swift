@@ -17,14 +17,20 @@ final class LocalContentTests: XCTestCase {
         XCTAssertTrue(out.contains("hej verden"))
     }
 
-    func testListsDirectory() {
+    func testListsDirectoryRecursivelyIncludingNestedFiles() {
         let d = tmpDir(); defer { try? FileManager.default.removeItem(at: d) }
-        try! "x".write(to: d.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
-        try! FileManager.default.createDirectory(at: d.appendingPathComponent("sub"), withIntermediateDirectories: true)
+        try! "<html>".write(to: d.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
+        let pub = d.appendingPathComponent("public")
+        try! FileManager.default.createDirectory(at: pub, withIntermediateDirectories: true)
+        try! Data().write(to: pub.appendingPathComponent("bjarne-ja.jpeg"))
+        try! Data().write(to: pub.appendingPathComponent("bjarne-nej.jpeg"))
         let out = try! XCTUnwrap(LocalContent.read(d.path))
         XCTAssertTrue(out.contains("MAPPE:"))
-        XCTAssertTrue(out.contains("a.txt"))
-        XCTAssertTrue(out.contains("sub/"))
+        XCTAssertTrue(out.contains("index.html"))
+        XCTAssertTrue(out.contains("public/"))
+        // The whole point of the fix: nested files (the images inside public/) must appear.
+        XCTAssertTrue(out.contains("bjarne-ja.jpeg"), "nested image must appear in the recursive listing")
+        XCTAssertTrue(out.contains("bjarne-nej.jpeg"))
     }
 
     func testMissingReturnsNil() {

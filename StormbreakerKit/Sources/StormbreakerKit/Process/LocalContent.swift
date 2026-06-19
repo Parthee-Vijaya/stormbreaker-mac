@@ -73,16 +73,27 @@ public enum LocalContent {
     }
 
     static func listing(_ path: String, fm: FileManager, maxEntries: Int, maxChars: Int) -> String {
-        let url = URL(fileURLWithPath: path)
-        let items = ((try? fm.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey],
-                                                  options: [.skipsHiddenFiles])) ?? [])
-            .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
-        var lines = ["MAPPE: \(path)  (\(items.count) elementer)"]
-        for item in items.prefix(maxEntries) {
-            let isDir = (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-            lines.append("  " + item.lastPathComponent + (isDir ? "/" : ""))
+        // Recursive tree (≤ 3 levels) so NESTED files show too — e.g. public/bjarne-ja.jpeg,
+        // not just "public/". Skips heavy build dirs; capped by entry count + chars.
+        let skip: Set<String> = ["node_modules", ".git", ".next", "dist", "build", ".DS_Store", ".cache"]
+        var lines: [String] = []
+        var count = 0
+        func walk(_ dir: URL, depth: Int, indent: String) {
+            guard depth <= 3, count < maxEntries else { return }
+            let items = ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.isDirectoryKey],
+                                                      options: [.skipsHiddenFiles])) ?? [])
+                .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+            for item in items {
+                if count >= maxEntries { lines.append(indent + "…"); return }
+                if skip.contains(item.lastPathComponent) { continue }
+                let isDir = (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+                lines.append(indent + item.lastPathComponent + (isDir ? "/" : ""))
+                count += 1
+                if isDir { walk(item, depth: depth + 1, indent: indent + "  ") }
+            }
         }
-        if items.count > maxEntries { lines.append("  … +\(items.count - maxEntries) flere") }
-        return String(lines.joined(separator: "\n").prefix(maxChars))
+        walk(URL(fileURLWithPath: path), depth: 1, indent: "  ")
+        return String((["MAPPE: \(path)  (\(count) elementer, rekursivt)"] + lines)
+            .joined(separator: "\n").prefix(maxChars))
     }
 }
