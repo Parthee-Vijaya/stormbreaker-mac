@@ -34,8 +34,9 @@ tar -xzf "$TMP/$ASSET" -C "$TMP"
 chmod +x "$TMP/storm"
 xattr -dr com.apple.quarantine "$TMP/storm" 2>/dev/null || true
 mv -f "$TMP/storm" "$DEST/storm"
+ln -sf "$DEST/storm" "$DEST/stormbreaker"   # samme binær — skriv 'storm' eller 'stormbreaker'
 
-echo "✓ Installeret: $DEST/storm"
+echo "✓ Installeret: $DEST/storm  (også som 'stormbreaker')"
 case ":$PATH:" in
   *":$DEST:"*) ;;
   *) echo
@@ -44,5 +45,5 @@ case ":$PATH:" in
 esac
 echo
 echo "Kom i gang:"
+echo "  storm                  # åbn (= stormbreaker) · skriv / for kommandoer"
 echo "  storm new min-app      # nyt projekt"
-echo "  storm chat             # fuldskærms-TUI · skriv / for kommandoer"

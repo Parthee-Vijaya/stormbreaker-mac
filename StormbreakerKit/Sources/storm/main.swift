@@ -349,6 +349,7 @@ let helpText = """
 \(bold("storm")) — byg web-apps fra terminalen med en lokal AI-model.
 
 \(bold("KOMMANDOER"))
+  storm                                 Åbn interaktiv session (= storm chat). Også: stormbreaker
   storm new <navn> [--framework F]      Scaffold et tomt projekt (ingen model)
   storm build "<prompt>" [valg]         Byg én gang; holder preview kørende
   storm chat [valg]                     Interaktiv session (byg videre i samme projekt)
@@ -574,11 +575,13 @@ func cmdTUICheck() {
 let argv = Array(CommandLine.arguments.dropFirst())
 let cfg = StormbreakerConfig.load()
 
-if argv.isEmpty || argv.first == "--help" || argv.first == "-h" || argv.first == "help" {
+if argv.first == "--help" || argv.first == "-h" || argv.first == "help" {
     say(helpText); exit(0)
 }
 
-let command = argv.first!
+// Bare `storm` (or `storm` with only options) opens the interactive chat TUI directly —
+// no `chat` subcommand needed. The explicit subcommands below still work as before.
+let command = argv.first ?? "chat"
 let rest = Args(Array(argv.dropFirst()))
 
 switch command {
@@ -589,7 +592,8 @@ case "skills": cmdSkills(rest, cfg)
 case "mcp":    await cmdMCP(rest, cfg)
 case "__tuicheck": cmdTUICheck()
 default:
-    // `storm "<prompt>"` is shorthand for `storm build "<prompt>"`.
-    if command.hasPrefix("--") { fail("ukendt kommando. Prøv: storm --help") }
-    await cmdBuild(Args(argv), cfg)
+    // `storm --project ~/x` (options only) → open chat with those options;
+    // `storm "<prompt>"` → shorthand for a one-shot `storm build`.
+    if command.hasPrefix("-") { await cmdChat(Args(argv), cfg) }
+    else { await cmdBuild(Args(argv), cfg) }
 }

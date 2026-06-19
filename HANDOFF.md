@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `bebc14e` 2026-06-19 — docs(site): current features + commands + fresh storm-branded CLI screenshots
 - `b3a041b` 2026-06-18 — docs: add CLI architecture slide deck (.pptx) + generator
 - `81ce686` 2026-06-18 — docs: thorough CLI architecture doc with diagrams
 - `a20cb42` 2026-06-18 — Cross-session memory: storm now remembers the user + project between sessions
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `8057d5d` 2026-06-18 — v0.3.0: website — CLI/terminal section + new features, version bump
 - `5536484` 2026-06-18 — AgentLoop: keep token accounting when a build fails at artifact-close
 - `41384d3` 2026-06-18 — TUI: token-forbrug altid ved siden af modelnavnet i headeren
-- `36b34f0` 2026-06-18 — docs(handoff): document the agentic-SDLC køreplan (reviewer · GitHub · swarm)
 <!-- COMMITLOG:END -->
