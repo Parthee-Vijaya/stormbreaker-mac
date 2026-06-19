@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `41fc71e` 2026-06-20 — Fix: ProcessRunner doesn't leak pumps/pipes when launch fails
 - `d499e81` 2026-06-20 — Fix: search-query encoding, github host check, gemini-2.5 pricing
 - `a438c6a` 2026-06-20 — Fix: stream watchdog for Anthropic + per-request MCP timeout
 - `5078430` 2026-06-20 — Fix: flush never re-runs a command after a mid-batch throw
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `056edcb` 2026-06-19 — Recursive folder listing so nested files (e.g. public/*.jpeg) show
 - `69453d4` 2026-06-19 — Read user-referenced local paths for real (+ browser open); stop faking it
 - `94174fd` 2026-06-19 — Bare `storm` launches the chat TUI (+ `stormbreaker` alias)
-- `bebc14e` 2026-06-19 — docs(site): current features + commands + fresh storm-branded CLI screenshots
 <!-- COMMITLOG:END -->

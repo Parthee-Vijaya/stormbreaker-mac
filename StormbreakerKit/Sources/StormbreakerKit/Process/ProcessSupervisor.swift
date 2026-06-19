@@ -98,8 +98,11 @@ public struct ProcessSupervisor: Sendable {
             let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
             process.waitUntilExit()
             let command = String(decoding: data, as: UTF8.self)
+            // Require a dev-server marker OR this project's path. A bare "node"
+            // match was too broad — after PID reuse it could kill an unrelated
+            // node process that inherited the recorded PID.
             return command.contains("vite")
-                || command.contains("node")
+                || command.contains("storm-run.sh")
                 || command.contains(projectRoot.path)
         } catch {
             return false
