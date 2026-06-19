@@ -34,6 +34,30 @@ final class ProjectWorkspaceTests: XCTestCase {
         }
     }
 
+    func testRejectsWriteThroughInternalSymlink() async throws {
+        let root = tempRoot()
+        let outside = tempRoot()   // a sibling dir the jail must NOT reach
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.removeItem(at: outside)
+        }
+        // A symlink INSIDE the project pointing to an outside directory.
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("escape"), withDestinationURL: outside)
+
+        let workspace = ProjectWorkspace(root: root)
+        do {
+            try await workspace.writeFile("escape/pwned.txt", contents: "nope")
+            XCTFail("write through an internal symlink should be rejected")
+        } catch let error as DevServerError {
+            XCTAssertEqual(error, .projectDirectoryUnwritable(path: "escape/pwned.txt"))
+        }
+        let leaked = FileManager.default.fileExists(atPath: outside.appendingPathComponent("pwned.txt").path)
+        XCTAssertFalse(leaked, "a file escaped the project root via the symlink")
+    }
+
     func testInstallsTemplateFiles() async throws {
         let root = tempRoot()
         defer { try? FileManager.default.removeItem(at: root) }

@@ -17,11 +17,41 @@ public actor ProjectWorkspace {
 
     /// Resolve a relative path to an absolute URL, verifying it stays inside the
     /// project root.
+    ///
+    /// Containment is checked against SYMLINK-RESOLVED paths, not just the lexically
+    /// standardized ones: `standardizedFileURL` only collapses `..`, so a symlink
+    /// *inside* the project pointing outside (`project/link -> /etc`, then `link/x`)
+    /// would otherwise pass the prefix check and let a write escape the jail. Plain
+    /// `resolvingSymlinksInPath` is not enough either — it leaves intermediate
+    /// symlinks unresolved when the final file doesn't exist yet (the common case for
+    /// a new write). So we resolve the deepest EXISTING ancestor (following any
+    /// symlink among the real components) and re-append the not-yet-created tail.
     public func absoluteURL(for relativePath: String) throws -> URL {
         let url = root.appendingPathComponent(relativePath).standardizedFileURL
-        let rootPath = root.path
-        guard url.path == rootPath || url.path.hasPrefix(rootPath + "/") else {
+        let resolvedRoot = root.resolvingSymlinksInPath().path
+        let resolved = Self.resolveDeepestExisting(url).path
+        let rootPrefix = resolvedRoot.hasSuffix("/") ? resolvedRoot : resolvedRoot + "/"
+        guard resolved == resolvedRoot || resolved.hasPrefix(rootPrefix) else {
             throw DevServerError.projectDirectoryUnwritable(path: relativePath)
+        }
+        return url
+    }
+
+    /// Canonicalize by resolving symlinks on the deepest part of `url` that actually
+    /// exists on disk, then re-appending the remaining (not-yet-created) components.
+    /// This way a symlink among the existing components is followed even though the
+    /// leaf file is new.
+    static func resolveDeepestExisting(_ url: URL) -> URL {
+        let fm = FileManager.default
+        var components = url.pathComponents
+        var tail: [String] = []
+        while components.count > 1 {
+            let candidate = NSString.path(withComponents: components)
+            if fm.fileExists(atPath: candidate) {
+                let base = URL(fileURLWithPath: candidate).resolvingSymlinksInPath()
+                return tail.reversed().reduce(base) { $0.appendingPathComponent($1) }
+            }
+            tail.append(components.removeLast())
         }
         return url
     }
