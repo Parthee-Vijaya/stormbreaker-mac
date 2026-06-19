@@ -54,9 +54,6 @@ public struct ProcessRunner: Sendable {
         process.standardOutput = outPipe
         process.standardError = errPipe
 
-        let outTask = Self.pump(outPipe, stream: .stdout, into: continuation)
-        let errTask = Self.pump(errPipe, stream: .stderr, into: continuation)
-
         // Capture the exit code via a one-shot stream so we can emit `.exited`
         // AFTER the pumps drain — never lost to a finish() race.
         let (exitStream, exitContinuation) = AsyncStream.makeStream(of: Int32.self)
@@ -68,9 +65,18 @@ public struct ProcessRunner: Sendable {
         do {
             try process.run()
         } catch {
+            // Launch failed: the pumps haven't been started yet, so there's nothing
+            // to cancel — just finish the streams so no awaiter leaks.
+            exitContinuation.finish()
             continuation.finish()
             throw error
         }
+
+        // Start the pumps only AFTER a successful launch (kernel pipe buffers hold
+        // any first bytes until the readability handlers attach) — otherwise a
+        // throw would leave their detached tasks + pipe handlers dangling forever.
+        let outTask = Self.pump(outPipe, stream: .stdout, into: continuation)
+        let errTask = Self.pump(errPipe, stream: .stderr, into: continuation)
 
         // Drain order: both pumps reach EOF → await the real exit code → emit
         // `.exited` → finish. Guarantees neither a log line nor the exit code

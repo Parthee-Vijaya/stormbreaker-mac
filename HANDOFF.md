@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `d499e81` 2026-06-20 — Fix: search-query encoding, github host check, gemini-2.5 pricing
 - `a438c6a` 2026-06-20 — Fix: stream watchdog for Anthropic + per-request MCP timeout
 - `5078430` 2026-06-20 — Fix: flush never re-runs a command after a mid-batch throw
 - `a011a98` 2026-06-20 — Fix: cap pinned @file size so it can't overflow num_ctx
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `69453d4` 2026-06-19 — Read user-referenced local paths for real (+ browser open); stop faking it
 - `94174fd` 2026-06-19 — Bare `storm` launches the chat TUI (+ `stormbreaker` alias)
 - `bebc14e` 2026-06-19 — docs(site): current features + commands + fresh storm-branded CLI screenshots
-- `b3a041b` 2026-06-18 — docs: add CLI architecture slide deck (.pptx) + generator
 <!-- COMMITLOG:END -->
