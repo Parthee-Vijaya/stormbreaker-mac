@@ -112,15 +112,21 @@ func makeModelConfig(_ args: Args, _ cfg: StormbreakerConfig) -> ModelConfig {
     let apiKey = args.option("api-key") ?? cfg.apiKey ?? ProcessInfo.processInfo.environment["STORM_CLOUD_API_KEY"] ?? ""
     let baseURL = (args.option("base-url") ?? cfg.baseURL).flatMap { URL(string: $0) }
 
+    var config: ModelConfig
     switch provider.lowercased() {
-    case "ollama":    return baseURL.map { ModelConfig.ollama(model: model, baseURL: $0) } ?? .ollama(model: model)
-    case "openai":     return .openAI(key: apiKey, model: model)
-    case "anthropic":  return .anthropic(key: apiKey, model: model)
-    case "gemini":     return .gemini(key: apiKey, model: model)
-    case "openrouter": return .openRouter(key: apiKey, model: model)
-    case "nvidia":     return .nvidiaNIM(key: apiKey, model: model)
-    default:          return baseURL.map { ModelConfig.lmStudio(model: model, baseURL: $0) } ?? .lmStudio(model: model)
+    case "ollama":     config = .ollama(model: model)
+    case "openai":     config = .openAI(key: apiKey, model: model)
+    case "anthropic":  config = .anthropic(key: apiKey, model: model)
+    case "gemini":     config = .gemini(key: apiKey, model: model)
+    case "openrouter": config = .openRouter(key: apiKey, model: model)
+    case "nvidia":     config = .nvidiaNIM(key: apiKey, model: model)
+    default:           config = .lmStudio(model: model)
     }
+    // --base-url overrides the provider's default endpoint for EVERY provider (cloud
+    // included) — e.g. an OpenAI-compatible proxy, a self-hosted gateway, or Azure.
+    // Previously it was silently ignored for all cloud providers.
+    if let baseURL { config.baseURL = baseURL }
+    return config
 }
 
 // MARK: - Engine wiring (mirrors tools/dogfood)
