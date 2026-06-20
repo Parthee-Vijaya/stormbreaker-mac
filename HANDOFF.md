@@ -5,7 +5,7 @@
 > Du skriver en prompt → en AI-agent skriver et React+Vite+TS+Tailwind-projekt til disk
 > → Stormbreaker kører det → preview opdaterer via HMR.
 
-- **Sidst opdateret:** 2026-06-20
+- **Sidst opdateret:** 2026-06-21
 - **Status:** Walking skeleton + **Lovable-stil UI** KOMPLET og verificeret i GUI. Empty-state hero → split-layout når der bygges; synlig tekst (tvunget lyst tema), fil-chips pr. besked, preview-toolbar (device-toggles/URL/refresh/åbn-i-browser), HMR-edits. **Multi-model**: auto-discovery af Ollama + LM Studio (verificeret live). **Kode-visning + fil-træ** (redigerbar editor → HMR) og **multi-projekt + historik** (skift/opret/slet, persistent pr. projekt) — begge verificeret live. **nanocoder-køreplan leveret**: `storm` CLI, bruger-skills (CLI+GUI), og MCP tool-calling — agenten kan kalde eksterne MCP-værktøjer midt i et build (e2e-verificeret) + eksterne agenter kan drive Stormbreaker via `storm-mcp`. **opencode-køreplan leveret**: approval-gate, diagnostics, cost, AGENTS.md, @file, export, prettier, steer-API + **fuld-skærms TUI** (`storm chat`) med live fil-streaming, farvediffs, model-skift, sessioner, slash-menu/temaer og en Kontekst-sidebar. **agentic-SDLC leveret**: reviewer-agent, GitHub-integration (GIT-sidebar + `/github`/`/push`/`/pull`/`/pr`) og swarm/kø (`/kø` + KØ-sidebar). Alle 177 StormbreakerKit-tests grønne; Mac-app + CLI bygger.
 - **Branch:** main · committed: skeleton + Lovable-UI + LM Studio-discovery (intet remote endnu)
 
@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `7ef9d1d` 2026-06-20 — TUI: label usage tokens ind/ud instead of prompt→completion
 - `60eb6b2` 2026-06-20 — TUI polish: bottom-anchor the transcript + drop the persistent intro line
 - `f5d6c6c` 2026-06-20 — docs: customization config files + 4 new parity features
 - `389ab3b` 2026-06-20 — Parity: remote MCP servers over HTTP/SSE + enabled flag
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `a011a98` 2026-06-20 — Fix: cap pinned @file size so it can't overflow num_ctx
 - `ab29a57` 2026-06-20 — Fix: don't truncate a tag at a '>' inside a quoted attribute
 - `afa59f2` 2026-06-20 — Fix: stripCodeFence never empties a file (data-loss guard)
-- `7df7b9b` 2026-06-20 — Fix: surface in-band provider errors instead of an empty turn
 <!-- COMMITLOG:END -->

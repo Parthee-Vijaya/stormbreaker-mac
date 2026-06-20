@@ -36,6 +36,15 @@ xattr -dr com.apple.quarantine "$TMP/storm" 2>/dev/null || true
 mv -f "$TMP/storm" "$DEST/storm"
 ln -sf "$DEST/storm" "$DEST/stormbreaker"   # samme binær — skriv 'storm' eller 'stormbreaker'
 
+# storm-mcp: the MCP server, so external agents (Claude Code / deepagents / …) can
+# drive Stormbreaker. Bundled in the same tarball; install it if present.
+if [ -f "$TMP/storm-mcp" ]; then
+  chmod +x "$TMP/storm-mcp"
+  xattr -dr com.apple.quarantine "$TMP/storm-mcp" 2>/dev/null || true
+  mv -f "$TMP/storm-mcp" "$DEST/storm-mcp"
+  echo "✓ Installeret: $DEST/storm-mcp  (MCP-server)"
+fi
+
 echo "✓ Installeret: $DEST/storm  (også som 'stormbreaker')"
 case ":$PATH:" in
   *":$DEST:"*) ;;

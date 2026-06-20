@@ -278,6 +278,18 @@ Alt er filbaseret — globalt i `~/.config/storm/` eller pr. projekt i `.forge/`
 I TUI'en kan du desuden `/paste` et billede fra udklipsholderen (screenshot → UI med en
 vision-model), `/model` skifte model, og `/theme` skifte tema midt i en session.
 
+## Som sub-agent i en agent-platform (MCP)
+
+Stormbreaker forbliver en native Swift-app — og kobler ind i en større agent-platform
+(fx **LangChain/deepagents**) som en specialiseret **sub-agent** over MCP. `storm-mcp`
+(installeres sammen med `storm`) eksponerer projektet som værktøjer: `list_files`,
+`read_file`, `write_file`, `run_command`, `get_errors` — og **`build`**, der afleverer et
+*helt* build til Stormbreakers egen selv-rettende agent og giver et resumé retur.
+
+Så en deepagents "deep agent" (Python) kan sige *"byg mig den her app"*, og
+Stormbreaker gør det native nedenunder — ét kontrolplan, ingen omskrivning. Hele
+opskriften: **[docs/deepagents-integration.md](docs/deepagents-integration.md)**.
+
 ## Byg fra kildekode
 
 ```sh
