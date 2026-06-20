@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `60eb6b2` 2026-06-20 — TUI polish: bottom-anchor the transcript + drop the persistent intro line
 - `f5d6c6c` 2026-06-20 — docs: customization config files + 4 new parity features
 - `389ab3b` 2026-06-20 — Parity: remote MCP servers over HTTP/SSE + enabled flag
 - `407eedf` 2026-06-20 — Parity: /paste a clipboard image into the TUI (vision)
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `ab29a57` 2026-06-20 — Fix: don't truncate a tag at a '>' inside a quoted attribute
 - `afa59f2` 2026-06-20 — Fix: stripCodeFence never empties a file (data-loss guard)
 - `7df7b9b` 2026-06-20 — Fix: surface in-band provider errors instead of an empty turn
-- `7f28f04` 2026-06-19 — Fix: kill the whole dev-server subtree on stop, not one level
 <!-- COMMITLOG:END -->

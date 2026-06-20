@@ -1319,7 +1319,7 @@ final class TUIApp {
             line("ingen kald endnu", dimStyle)
         } else {
             line("\(fmtTok(sessionTokens)) tok · \(mCalls) kald")
-            line("\(fmtTok(mPrompt))→\(fmtTok(mCompletion)) · \(Int(tokPerSec)) tok/s", dimStyle)
+            line("ind \(fmtTok(mPrompt)) · ud \(fmtTok(mCompletion)) · \(Int(tokPerSec)) tok/s", dimStyle)
             line("TTFT \(fmtTTFT(mLastTTFT)) · \(fmtCost())", dimStyle)
         }
         gap()
