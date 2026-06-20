@@ -143,6 +143,7 @@ final class TUIApp {
     private var todos: [TodoItem] = []         // the agent's live plan checklist (PLAN sidebar section)
     private var sawExplicitTodos = false       // a <forgeAction type="todo"> wins over prose detection
     private var previewURL: URL?               // last dev-server preview URL (for /open)
+    private var pendingImages: [String] = []   // clipboard images attached to the next turn (/paste)
 
     /// Known slash commands (with aliases) — so a pasted `/Users/...` path is NOT mistaken
     /// for a command. Only these route to handleCommand; anything else `/…` is a prompt.
@@ -151,6 +152,7 @@ final class TUIApp {
         "init", "github", "publish", "commit", "push", "pull", "pr", "git", "kø", "ko",
         "queue", "swarm", "compact", "komprimer", "komprimér", "remember", "husk", "memory",
         "hukommelse", "open", "åbn", "copy", "kopier", "yank", "help", "quit", "q",
+        "paste", "image", "img", "billede",
     ]
     private func isSlashCommand(_ line: String) -> Bool {
         guard line.hasPrefix("/") else { return false }
@@ -341,6 +343,7 @@ final class TUIApp {
         liveFile = nil; liveBuffer = ""; todos = []; sawExplicitTodos = false   // fresh checklist per turn
         isBusy = true; status = StormQuotes.working.randomElement() ?? "Tænker…"; statusIsQuote = true; spinnerFrame = 0
         let engine = self.engine
+        let images = pendingImages; pendingImages = []   // attached via /paste, sent once
         turnTask = Task {
             // Snapshot the pre-turn state first, so /diff + /undo (P9/P11) can compare.
             if let sha = await engine.checkpoints.snapshot(label: text) { cont.yield(.turnSnapshot(sha)) }
@@ -353,7 +356,7 @@ final class TUIApp {
             prompt = await self.augmentWithPaths(prompt)
             let gate = TUIPermissionGate(channel: cont)
             let loop = AgentLoop(makeDeps(engine, mode: mode, gate: gate))
-            for await ev in loop.run(userPrompt: prompt, history: self.history, mode: mode) { cont.yield(.agent(ev)) }
+            for await ev in loop.run(userPrompt: prompt, history: self.history, mode: mode, images: images) { cont.yield(.agent(ev)) }
             cont.yield(.turnEnded)
         }
         needsRender = true
@@ -1421,6 +1424,7 @@ final class TUIApp {
         case "memory", "hukommelse": memoryCommand(arg)
         case "open", "åbn": openInBrowser(arg); needsRender = true
         case "copy", "kopier", "yank": copyLast()
+        case "paste", "image", "img", "billede": attachClipboardImage()
         case "quit", "q":  running = false
         case "help":       transcript.append(Line(role: .system, text: helpText()))
         default:
@@ -1626,6 +1630,7 @@ final class TUIApp {
         ("/memory", "vis/glem hvad jeg husker på tværs af sessioner"),
         ("/open", "åbn preview i browseren"),
         ("/copy", "kopiér sidste svar til udklipsholderen"),
+        ("/paste", "vedhæft et billede fra udklipsholderen"),
         ("/help", "vis kommandoer"),
         ("/quit", "afslut"),
     ]
@@ -1678,6 +1683,43 @@ final class TUIApp {
             transcript.append(Line(role: .system, text: "kunne ikke kopiere (pbcopy utilgængelig)"))
         }
         needsRender = true
+    }
+
+    /// /paste — attach an image from the macOS clipboard to the NEXT prompt (for
+    /// vision models: paste a screenshot/mockup → UI). Read via osascript so the CLI
+    /// doesn't link AppKit (and pay its launch cost) just for this.
+    private func attachClipboardImage() {
+        guard let dataURL = Self.clipboardImageDataURL() else {
+            transcript.append(Line(role: .system, text: "intet billede i udklipsholderen — kopiér et screenshot først"))
+            needsRender = true; return
+        }
+        pendingImages.append(dataURL)
+        status = "📎 billede vedhæftet (\(pendingImages.count)) — skriv din prompt og tryk Enter"
+        transcript.append(Line(role: .system, text: "📎 vedhæftede et billede fra udklipsholderen (\(pendingImages.count))"))
+        needsRender = true
+    }
+
+    /// Save the clipboard's image to a temp PNG via AppleScript, return it as a
+    /// base64 data URL. nil if the clipboard holds no image.
+    private static func clipboardImageDataURL() -> String? {
+        let tmp = NSTemporaryDirectory() + "storm-clip-\(ProcessInfo.processInfo.processIdentifier).png"
+        try? FileManager.default.removeItem(atPath: tmp)
+        let script = """
+        set fp to open for access POSIX file "\(tmp)" with write permission
+        try
+          set eof fp to 0
+          write (the clipboard as «class PNGf») to fp
+        end try
+        close access fp
+        """
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        p.arguments = ["-e", script]
+        p.standardError = Pipe(); p.standardOutput = Pipe()
+        do { try p.run(); p.waitUntilExit() } catch { return nil }
+        defer { try? FileManager.default.removeItem(atPath: tmp) }
+        guard let data = FileManager.default.contents(atPath: tmp), !data.isEmpty else { return nil }
+        return "data:image/png;base64," + data.base64EncodedString()
     }
 
     // MARK: - GitHub (the project's REAL .git + gh)
