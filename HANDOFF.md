@@ -90,6 +90,7 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 ## Commit-log (auto-genereret)
 
 <!-- COMMITLOG:START -->
+- `04cfdca` 2026-06-20 — Parity: grep/glob code-search tools for the agent
 - `6cc535f` 2026-06-20 — Parity: read CLAUDE.md as a project rules file
 - `65a4fb8` 2026-06-20 — Parity: custom slash commands (opencode)
 - `cb9c4a5` 2026-06-20 — Fix: tighten orphan-reclaim match (drop bare "node")
@@ -109,5 +110,4 @@ Borrow fra scalable.dk/agentic-sdlc — gør Stormbreaker til et lille team, ikk
 - `4172305` 2026-06-19 — Security (H3): resolve symlinks before the write-jail containment check
 - `07ef1d4` 2026-06-19 — Security (H2): SSRF guard on all outbound web requests
 - `a5e3faf` 2026-06-19 — Security (C6): confirm before launching project-local MCP servers
-- `090a845` 2026-06-19 — Security: harden ShellRules against RCE + secret exfiltration
 <!-- COMMITLOG:END -->

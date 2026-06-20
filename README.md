@@ -43,7 +43,7 @@ der tikker op imens du lærer og eksperimenterer.
 
 ## Installér
 
-1. Hent **`Stormbreaker-0.2.1.dmg`** fra
+1. Hent den nyeste **`Stormbreaker-*.dmg`** fra
    [seneste release](https://github.com/Parthee-Vijaya/stormbreaker-mac/releases/latest).
 2. Åbn DMG'en og træk **Stormbreaker** over i **Programmer**.
 3. Appen er ad-hoc-signeret (endnu ikke notariseret — det venter til der er en betalt Apple
@@ -52,6 +52,31 @@ der tikker op imens du lærer og eksperimenterer.
 
 Kræver **macOS 26** (Apple Silicon). Du skal også bruge en model-backend — onboarding-guiden
 hjælper dig med at installere en gratis lokal model (se [Modeller](#modeller)).
+
+## `storm` — terminal-CLI
+
+Hele motoren findes også som et terminal-værktøj med en fuldskærms-TUI — samme agent,
+samme lokale modeller, men i din shell (godt til SSH, automatisering og dogfooding).
+
+```sh
+curl -fsSL https://parthee-vijaya.github.io/stormbreaker-mac/install.sh | bash
+```
+
+Derefter:
+
+```sh
+storm                       # åbn den interaktive TUI i den nuværende mappe
+storm build "en tæller-app" # ét-skuds-build (ingen TUI)
+storm new my-app --framework react
+storm chat --resume         # genoptag sidste session
+storm --help
+```
+
+I TUI'en skriver du `/` for kommando-menuen: `/model` (skift model midt i en session),
+`/diff` `/undo` `/restore` (checkpoints), `/review` `/fix`, `/commit` `/push` `/pr` (git),
+`/compact`, `/remember` `/memory`, `/theme`, `/init` (skriv `AGENTS.md`) — plus dine
+**egne** kommandoer (læg en `.md` i `~/.config/storm/commands/` eller projektets
+`.forge/commands/`; se [Egne kommandoer](#egne-kommandoer)).
 
 ## Sådan virker det
 
@@ -163,6 +188,23 @@ første deploy) og holder en altid-åben ordbog over fagudtrykkene.
 - Spørg-om-koden (read-only RAG) — stil spørgsmål om det genererede projekt.
 - Pluggbare agent-backends og en **MCP-server** (`storm-mcp`) der eksponerer et projekt til
   eksterne agenter.
+- **Værktøjer agenten selv kan bruge:** web-søgning/-hentning, kode-søgning (`grep` i
+  indhold + `glob` på filnavne), read-file, og eksterne **MCP**-værktøjer — alle som
+  tool-runder hvor resultatet fødes tilbage (og altid behandlet som * utroværdig* tekst).
+- **Live todo-checkliste** under en build, automatisk samtale-**compaction** ved lange
+  sessioner, og **cross-session-hukommelse** (`/remember`, auto-udtræk af holdbare fakta).
+- **Sikkerhed:** per-kommando shell-triage (sikkert dev-værktøj kører frit; `rm -rf /`,
+  pipe-to-shell o.l. afvises; resten spørger), write-jail mod symlink-escape, SSRF-værn på
+  web-hentning, og bekræftelse før et projekts MCP-servere startes.
+- **Projekt-regler:** læser `CLAUDE.md` / `AGENTS.md` / `AI_RULES.md`, så et projekt lavet
+  til Claude Code eller opencode virker uændret.
+
+**`storm` CLI (terminal)**
+- Fuldskærms-TUI (håndbygget, nul-dependency): live fil-streaming med syntaks-farver,
+  farvede diffs, statuslinje, slash-menu, temaer.
+- Egne slash-kommandoer (`$ARGUMENTS` / `` !`shell` `` / `@fil`), session-resume,
+  model-skift midt i en session, indbygget reviewer + git + opgave-kø.
+- Samme 7 providere som appen; `--plain`/`--no-tui` for CI og scripts.
 
 **Workflow**
 - Flere frameworks: React / Svelte / Vue (Vite) + **Next.js** (App Router).
@@ -198,6 +240,29 @@ dig (officiel download eller Homebrew) og hente den anbefalede model.
 
 Nøgler gemmes i macOS Keychain, aldrig i klartekst.
 
+## Egne kommandoer
+
+Lav genbrugelige slash-kommandoer som markdown-filer — globalt i
+`~/.config/storm/commands/` eller pr. projekt i `.forge/commands/`. Filnavnet bliver
+kommandoens navn. Eksempel `~/.config/storm/commands/review.md`:
+
+```markdown
+---
+description: Gennemgå ændringerne for fejl
+mode: plan
+---
+Gennemgå denne diff grundigt for fejl og sikkerhedsproblemer:
+
+!`git diff`
+
+Fokusér især på: $ARGUMENTS
+```
+
+Kør den med `/review auth-flowet`. Skabelonen udvides før den sendes: `$ARGUMENTS` bliver
+til din tekst, `` !`shell` `` indsætter en kommandos output (kun sikre kommandoer kører),
+og `@sti/fil` indsætter en projektfils indhold. Inspireret af opencode — samme idé,
+Stormbreaker-motoren.
+
 ## Byg fra kildekode
 
 ```sh
@@ -226,7 +291,8 @@ glob'es af SPM, så nye filer dér kræver ikke en regenerering.
 
 - **`StormbreakerKit/`** — motoren (Swift-pakke, ren Foundation, Swift 6 strict concurrency):
   model-router, streaming-parser, action-executor, proces-/dev-server-manager, agent-løkke.
-  Indeholder også `storm-mcp` (MCP stdio-server). Bygger og testes headless.
+  Indeholder også **`storm`** (terminal-CLI + TUI) og `storm-mcp` (MCP stdio-server).
+  Bygger og testes headless.
 - **`Stormbreaker/`** — SwiftUI macOS-appen: chat-panel, kode-editor, `WKWebView`-preview, terminal,
   onboarding, indstillinger. Genereres til `Stormbreaker.xcodeproj` via `xcodegen`.
 - **`docs/`** — denne sides screenshots + GitHub Pages-landingssiden (`index.html`).
