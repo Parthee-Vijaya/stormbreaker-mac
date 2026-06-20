@@ -196,10 +196,10 @@ final class TUIApp {
             }
             let n = resume.turns.filter { $0.role == "user" }.count
             transcript.append(Line(role: .system, text: "↺ genoptog \(n) tidligere tur(e) — byg videre eller /restore."))
-        } else {
-            transcript.append(Line(role: .system,
-                text: "Stormbreaker — beskriv hvad du vil bygge og tryk Enter. Ctrl-C afbryder/afslutter."))
         }
+        // No fresh-start intro line in the transcript: the welcome screen (logo +
+        // hints) is the empty state, and the line otherwise lingered above every
+        // later turn. drawWelcome shows while the transcript is empty.
     }
 
     func run() async {
@@ -852,7 +852,7 @@ final class TUIApp {
         }
 
         drawHeader(buf, layout.header)
-        if transcript.count <= 1, history.isEmpty, !isBusy {
+        if transcript.isEmpty, history.isEmpty, !isBusy {
             drawWelcome(buf, layout.transcript)                  // logo + hints before anything happens
         } else {
             drawTranscript(buf, layout.transcript)
@@ -904,9 +904,15 @@ final class TUIApp {
         let maxScroll = max(0, vis.count - r.h)
         if scroll > maxScroll { scroll = maxScroll }
         let start = max(0, vis.count - r.h - scroll)
-        for i in 0..<min(r.h, max(0, vis.count - start)) {
+        let count = min(r.h, max(0, vis.count - start))
+        // Bottom-anchor: when the whole transcript fits, pin it to the bottom of the
+        // pane (just above the input) rather than letting it float at the top with an
+        // empty void below — the chat-style look. When it overflows, count == r.h so
+        // there's no padding and the scroll window fills the pane.
+        let topPad = max(0, r.h - count)
+        for i in 0..<count {
             let (txt, st) = vis[start + i]
-            buf.text(txt, x: r.x, y: r.y + i, st, clip: r)
+            buf.text(txt, x: r.x, y: r.y + topPad + i, st, clip: r)
         }
     }
 
